@@ -52,7 +52,7 @@ $('run').onclick = async () => {
   if (!months.length) showMsg('W ewidencji nie znaleziono arkuszy z nazwami miesięcy.', true);
 
   fill($('t-ok'), matched, ['lp', 'amount', 'ksef', 'contractor', 'firma'], 'amount');
-  fill($('t-bad'), unmatched, ['date', 'number', 'ksef', 'contractor', 'amount'], 'amount');
+  fill($('t-bad'), unmatched, ['date', 'number', 'ksef', 'contractor', 'amount', 'reason'], 'amount');
   $('c-ok').textContent = 'Liczba rekordów: ' + matched.length;
   $('c-bad').textContent = 'Liczba rekordów: ' + unmatched.length;
   $('s-total').textContent = total;

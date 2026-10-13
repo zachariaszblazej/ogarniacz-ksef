@@ -99,10 +99,15 @@ function match(invoices, ledger) {
   const matched = [], unmatched = [];
   for (const inv of invoices) {
     let found = [];
+    let reason = 'Inne';
     const month = ksefMonth(inv.ksef);
-    if (inv.cents !== null && counts.get(inv.cents) === 1 && ledger[month]) {
+    if (inv.cents !== null && counts.get(inv.cents) > 1) {
+      reason = 'Więcej niż 1 faktura od księgowej z tą samą kwotą brutto';
+    } else if (inv.cents !== null && ledger[month]) {
       const key = inv.cents < 0 ? 'przychod' : 'koszt';
       found = ledger[month][key].get(Math.abs(inv.cents)) || [];
+      if (found.length === 0) reason = 'Brak operacji finansowej dla tej faktury (brak matchy)';
+      else if (found.length > 1) reason = 'Więcej niż 1 pasująca operacja finansowa (więcej niż 1 match)';
     }
     if (found.length === 1) {
       matched.push({
@@ -113,6 +118,7 @@ function match(invoices, ledger) {
       unmatched.push({
         date: inv.date, number: inv.number, ksef: inv.ksef, contractor: inv.contractor,
         amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
+        reason,
       });
     }
   }
