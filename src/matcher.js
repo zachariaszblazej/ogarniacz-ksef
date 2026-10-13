@@ -1,135 +1,180 @@
 const XLSX = require('xlsx');
 
 const MONTHS = ['styczen', 'luty', 'marzec', 'kwiecien', 'maj', 'czerwiec',
-  'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'];
+    'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'];
 
 function norm(text) {
-  return String(text).toLowerCase().replace(/ł/g, 'l')
-    .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return String(text).toLowerCase().replace(/ł/g, 'l')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function plain(v) {
-  return v === undefined ? null : v;
+    return v === undefined ? null : v;
 }
 
 function toCents(v) {
-  v = plain(v);
-  if (v === null || typeof v === 'boolean' || v instanceof Date) return null;
-  if (typeof v === 'number') return Math.round(v * 100);
-  let s = String(v).replace(/\u00a0/g, '').replace(/[^\d,.\-]/g, '');
-  if (!s) return null;
-  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
-  const n = parseFloat(s);
-  return Number.isNaN(n) ? null : Math.round(n * 100);
+    v = plain(v);
+    if (v === null || typeof v === 'boolean' || v instanceof Date) return null;
+    if (typeof v === 'number') return Math.round(v * 100);
+    let s = String(v).replace(/\u00a0/g, '').replace(/[^\d,.\-]/g, '');
+    if (!s) return null;
+    if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(s);
+    return Number.isNaN(n) ? null : Math.round(n * 100);
 }
 
 function ksefMonth(nr) {
-  const m = /-(\d{4})(\d{2})(\d{2})-/.exec(String(nr ?? ''));
-  if (!m) return null;
-  const mo = parseInt(m[2], 10);
-  return mo >= 1 && mo <= 12 ? mo : null;
+    const m = /-(\d{4})(\d{2})(\d{2})-/.exec(String(nr ?? ''));
+    if (!m) return null;
+    const mo = parseInt(m[2], 10);
+    return mo >= 1 && mo <= 12 ? mo : null;
 }
 
 function fmtDate(v) {
-  if (v instanceof Date) {
-    const p = x => String(x).padStart(2, '0');
-    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
-  }
-  return v === null || v === undefined ? '' : String(v);
+    if (v instanceof Date) {
+        const p = x => String(x).padStart(2, '0');
+        return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+    }
+    return v === null || v === undefined ? '' : String(v);
 }
 
 function openBook(path) {
-  return XLSX.readFile(path, { cellDates: true });
+    return XLSX.readFile(path, { cellDates: true });
 }
 
 // Wartość komórki (wiersz i kolumna 1-based) lub null
 function cell(ws, row, col) {
-  const c = ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })];
-  return plain(c ? c.v : null);
+    const c = ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })];
+    return plain(c ? c.v : null);
 }
 
 function lastRow(ws) {
-  return ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).e.r + 1 : 0;
+    return ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).e.r + 1 : 0;
 }
 
 async function readInvoices(path) {
-  const wb = openBook(path);
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const out = [];
-  for (let n = 2; n <= lastRow(ws); n++) {
-    const cells = [1, 2, 3, 4, 5].map(c => cell(ws, n, c));
-    if (cells.every(c => c === null || c === '')) continue;
-    out.push({
-      date: fmtDate(cells[0]), number: cells[1] ?? '', ksef: cells[2] ?? '',
-      contractor: cells[3] ?? '', amount: cells[4] ?? '', cents: toCents(cells[4]),
-    });
-  }
-  return out;
+    const wb = openBook(path);
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const out = [];
+    for (let n = 2; n <= lastRow(ws); n++) {
+        const cells = [1, 2, 3, 4, 5].map(c => cell(ws, n, c));
+        if (cells.every(c => c === null || c === '')) continue;
+        out.push({
+            date: fmtDate(cells[0]), number: cells[1] ?? '', ksef: cells[2] ?? '',
+            contractor: cells[3] ?? '', amount: cells[4] ?? '', cents: toCents(cells[4]),
+        });
+    }
+    return out;
 }
 
 async function readLedger(path) {
-  const wb = openBook(path);
-  const ledger = {};
-  for (const sheetName of wb.SheetNames) {
-    const name = norm(sheetName);
-    const idx = MONTHS.findIndex(m => name.includes(m));
-    if (idx < 0) continue;
-    const ws = wb.Sheets[sheetName];
-    const data = { przychod: new Map(), koszt: new Map() };
-    for (let n = 6; n <= lastRow(ws); n++) {
-      const lp = cell(ws, n, 1);
-      if (lp === null || lp === '') continue;
-      const firma = cell(ws, n, 5) ?? '';
-      for (const [key, col] of [['przychod', 13], ['koszt', 17]]) {
-        const c = toCents(cell(ws, n, col));
-        if (!c) continue;
-        const k = Math.abs(c);
-        if (!data[key].has(k)) data[key].set(k, []);
-        data[key].get(k).push({ lp, firma });
-      }
+    const wb = openBook(path);
+    const ledger = {};
+    for (const sheetName of wb.SheetNames) {
+        const name = norm(sheetName);
+        const idx = MONTHS.findIndex(m => name.includes(m));
+        if (idx < 0) continue;
+        const ws = wb.Sheets[sheetName];
+        const data = { przychod: new Map(), koszt: new Map() };
+        for (let n = 6; n <= lastRow(ws); n++) {
+            const lp = cell(ws, n, 1);
+            if (lp === null || lp === '') continue;
+            const firma = cell(ws, n, 5) ?? '';
+            for (const [key, col] of [['przychod', 13], ['koszt', 17]]) {
+                const c = toCents(cell(ws, n, col));
+                if (!c) continue;
+                const k = Math.abs(c);
+                if (!data[key].has(k)) data[key].set(k, []);
+                data[key].get(k).push({
+                    lp, firma, sheet: sheetName, row: n,
+                    b: cell(ws, n, 2), c: cell(ws, n, 3), f: cell(ws, n, 6),
+                });
+            }
+        }
+        ledger[idx + 1] = data;
     }
-    ledger[idx + 1] = data;
-  }
-  return ledger;
+    return ledger;
+}
+
+function ksefDateParts(nr) {
+    const m = /-(\d{4})(\d{2})(\d{2})-/.exec(String(nr ?? ''));
+    if (!m) return null;
+    const [y, mo, d] = [+m[1], +m[2], +m[3]];
+    const dt = new Date(Date.UTC(y, mo - 1, d));
+    if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
+    const p = x => String(x).padStart(2, '0');
+    return { text: `${p(d)}.${p(mo)}.${y}`, serial: Math.round(dt.getTime() / 86400000) + 25569 };
+}
+
+function displayDate(v) {
+    if (v instanceof Date) {
+        const p = x => String(x).padStart(2, '0');
+        return `${p(v.getDate())}.${p(v.getMonth() + 1)}.${v.getFullYear()}`;
+    }
+    return v === null || v === undefined ? '' : String(v).trim();
+}
+
+// Plan zmian w ewidencji dla jednej zmatchowanej operacji
+function makePlanItem(inv, e) {
+    const ksef = String(inv.ksef).trim();
+    const bOld = e.b === null ? '' : String(e.b).trim();
+    const cOld = e.c === null ? '' : String(e.c).trim();
+    const cNew = cOld === '' ? ksef : (cOld.includes(ksef) ? cOld : `${cOld}; ${ksef}`);
+    const date = ksefDateParts(ksef);
+    const fOld = displayDate(e.f);
+    const fNew = date ? date.text : fOld;
+    const item = {
+        sheet: e.sheet, row: e.row, lp: e.lp, ksef,
+        b: { old: bOld, new: 'T', changed: bOld !== 'T' },
+        c: { old: cOld, new: cNew, changed: cNew !== cOld },
+        f: {
+            old: fOld, new: fNew, changed: fNew !== fOld,
+            serial: date ? date.serial : null,
+            asText: typeof e.f === 'string' && e.f.trim() !== '',
+        },
+    };
+    item.hasChanges = item.b.changed || item.c.changed || item.f.changed;
+    return item;
 }
 
 function match(invoices, ledger) {
-  const counts = new Map();
-  for (const i of invoices) if (i.cents !== null) counts.set(i.cents, (counts.get(i.cents) || 0) + 1);
-  const matched = [], unmatched = [];
-  for (const inv of invoices) {
-    let found = [];
-    let reason = 'Inne';
-    const month = ksefMonth(inv.ksef);
-    if (inv.cents !== null && counts.get(inv.cents) > 1) {
-      reason = 'Więcej niż 1 faktura od księgowej z tą samą kwotą brutto';
-    } else if (inv.cents !== null && ledger[month]) {
-      const key = inv.cents < 0 ? 'przychod' : 'koszt';
-      found = ledger[month][key].get(Math.abs(inv.cents)) || [];
-      if (found.length === 0) reason = 'Brak operacji finansowej dla tej faktury (brak matchy)';
-      else if (found.length > 1) reason = 'Więcej niż 1 pasująca operacja finansowa (więcej niż 1 match)';
+    const counts = new Map();
+    for (const i of invoices) if (i.cents !== null) counts.set(i.cents, (counts.get(i.cents) || 0) + 1);
+    const matched = [], unmatched = [], plan = [];
+    for (const inv of invoices) {
+        let found = [];
+        let reason = 'Inne';
+        const month = ksefMonth(inv.ksef);
+        if (inv.cents !== null && counts.get(inv.cents) > 1) {
+            reason = 'Więcej niż 1 faktura od księgowej z tą samą kwotą brutto';
+        } else if (inv.cents !== null && ledger[month]) {
+            const key = inv.cents < 0 ? 'przychod' : 'koszt';
+            found = ledger[month][key].get(Math.abs(inv.cents)) || [];
+            if (found.length === 0) reason = 'Brak operacji finansowej dla tej faktury (brak matchy)';
+            else if (found.length > 1) reason = 'Więcej niż 1 pasująca operacja finansowa (więcej niż 1 match)';
+        }
+        if (found.length === 1) {
+            plan.push(makePlanItem(inv, found[0]));
+            matched.push({
+                lp: found[0].lp, amount: (inv.cents / 100).toFixed(2),
+                ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma,
+            });
+        } else {
+            unmatched.push({
+                date: inv.date, number: inv.number, ksef: inv.ksef, contractor: inv.contractor,
+                amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
+                reason,
+            });
+        }
     }
-    if (found.length === 1) {
-      matched.push({
-        lp: found[0].lp, amount: (inv.cents / 100).toFixed(2),
-        ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma,
-      });
-    } else {
-      unmatched.push({
-        date: inv.date, number: inv.number, ksef: inv.ksef, contractor: inv.contractor,
-        amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
-        reason,
-      });
-    }
-  }
-  return { matched, unmatched };
+    return { matched, unmatched, plan };
 }
 
 async function run(invoicesPath, ledgerPath) {
-  const invoices = await readInvoices(invoicesPath);
-  const ledger = await readLedger(ledgerPath);
-  const months = Object.keys(ledger).map(Number).sort((a, b) => a - b);
-  return { ...match(invoices, ledger), total: invoices.length, months };
+    const invoices = await readInvoices(invoicesPath);
+    const ledger = await readLedger(ledgerPath);
+    const months = Object.keys(ledger).map(Number).sort((a, b) => a - b);
+    return { ...match(invoices, ledger), total: invoices.length, months };
 }
 
 module.exports = { run, ksefMonth, toCents, match };

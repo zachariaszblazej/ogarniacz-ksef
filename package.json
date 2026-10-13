@@ -1,15 +1,16 @@
 {
-  "name": "ogarniacz-ksef",
-  "version": "0.2.0",
-  "description": "Ogarniacz KSEF - dopasowanie faktur KSEF do ewidencji operacji finansowych",
-  "main": "src/main.js",
-  "scripts": {
-    "start": "electron ."
-  },
-  "devDependencies": {
-    "electron": "^33.0.0"
-  },
-  "dependencies": {
-    "xlsx": "^0.18.5"
-  }
+    "name": "ogarniacz-ksef",
+    "version": "0.2.0",
+    "description": "Ogarniacz KSEF - dopasowanie faktur KSEF do ewidencji operacji finansowych",
+    "main": "src/main.js",
+    "scripts": {
+        "start": "electron ."
+    },
+    "devDependencies": {
+        "electron": "^33.0.0"
+    },
+    "dependencies": {
+        "jszip": "^3.10.2",
+        "xlsx": "^0.18.5"
+    }
 }

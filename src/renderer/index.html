@@ -1,66 +1,122 @@
 <!DOCTYPE html>
 <html lang="pl">
+
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
-  <title>Ogarniacz KSEF</title>
-  <link rel="stylesheet" href="styles.css">
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'">
+    <title>Ogarniacz KSEF</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
-  <header>
-    <div class="logo">K</div>
-    <div>
-      <h1>Ogarniacz KSEF</h1>
-      <p>Dopasowanie faktur z KSEF do ewidencji operacji finansowych</p>
+    <header>
+        <div class="logo">K</div>
+        <div>
+            <h1>Ogarniacz KSEF</h1>
+            <p>Dopasowanie faktur z KSEF do ewidencji operacji finansowych</p>
+        </div>
+    </header>
+
+    <main>
+        <section class="pickers">
+            <div class="picker" id="p-inv">
+                <span class="label">Lista faktur od księgowej</span>
+                <span class="file" id="f-inv">Nie wybrano pliku</span>
+                <button id="b-inv" class="ghost">Wybierz plik…</button>
+            </div>
+            <div class="picker" id="p-led">
+                <span class="label">Ewidencja operacji finansowych</span>
+                <span class="file" id="f-led">Nie wybrano pliku</span>
+                <button id="b-led" class="ghost">Wybierz plik…</button>
+            </div>
+            <button id="run" class="primary" disabled>Dopasuj</button>
+        </section>
+
+        <div id="msg" class="msg hidden"></div>
+
+        <section id="stats" class="stats hidden">
+            <div class="stat"><b id="s-total">0</b><span>faktur na liście</span></div>
+            <div class="stat ok"><b id="s-ok">0</b><span>zmatchowanych</span></div>
+            <div class="stat warn"><b id="s-bad">0</b><span>niezmatchowanych</span></div>
+            <div class="stat"><b id="s-months">–</b><span>miesiące w ewidencji</span></div>
+        </section>
+
+        <section class="card">
+            <h2><span class="dot ok"></span>Zmatchowane z ewidencją</h2>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Lp</th>
+                            <th class="num">Kwota brutto</th>
+                            <th>Nr KSEF</th>
+                            <th>Kontrahent</th>
+                            <th>Firma (ewidencja)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="t-ok"></tbody>
+                </table>
+            </div>
+            <div class="count" id="c-ok">Liczba rekordów: 0</div>
+            <div class="actions">
+                <button id="fill" class="primary" disabled>Uzupełnij ewidencję</button>
+                <span id="fill-info" class="hint"></span>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2><span class="dot warn"></span>Niezmatchowane</h2>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Nr faktury</th>
+                            <th>Nr KSEF</th>
+                            <th>Kontrahent</th>
+                            <th class="num">Kwota brutto</th>
+                            <th>Powód</th>
+                        </tr>
+                    </thead>
+                    <tbody id="t-bad"></tbody>
+                </table>
+            </div>
+            <div class="count" id="c-bad">Liczba rekordów: 0</div>
+        </section>
+    </main>
+
+    <div id="modal" class="overlay hidden">
+        <div class="dialog" role="dialog" aria-modal="true">
+            <h3>⚠ Potwierdź zmiany w ewidencji</h3>
+            <p id="m-summary"></p>
+            <p class="warning">
+                Zmiany zostaną zapisane bezpośrednio w pliku ewidencji. Przed zapisem aplikacja utworzy
+                kopię zapasową obok oryginału. Plik nie może być otwarty w Excelu.
+            </p>
+            <div class="scroll tall">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Arkusz</th>
+                            <th>Wiersz</th>
+                            <th>Lp</th>
+                            <th>B: KSEF (T/N)</th>
+                            <th>C: nr FV</th>
+                            <th>F: Data wystawienia</th>
+                        </tr>
+                    </thead>
+                    <tbody id="m-body"></tbody>
+                </table>
+            </div>
+            <label class="check"><input type="checkbox" id="m-ack"> Przejrzałem zmiany i zgadzam się na ich
+                zapisanie</label>
+            <div class="dialog-actions">
+                <button id="m-cancel" class="ghost">Anuluj</button>
+                <button id="m-ok" class="primary" disabled>Zapisz zmiany w Excelu</button>
+            </div>
+        </div>
     </div>
-  </header>
-
-  <main>
-    <section class="pickers">
-      <div class="picker" id="p-inv">
-        <span class="label">Lista faktur od księgowej</span>
-        <span class="file" id="f-inv">Nie wybrano pliku</span>
-        <button id="b-inv" class="ghost">Wybierz plik…</button>
-      </div>
-      <div class="picker" id="p-led">
-        <span class="label">Ewidencja operacji finansowych</span>
-        <span class="file" id="f-led">Nie wybrano pliku</span>
-        <button id="b-led" class="ghost">Wybierz plik…</button>
-      </div>
-      <button id="run" class="primary" disabled>Dopasuj</button>
-    </section>
-
-    <div id="msg" class="msg hidden"></div>
-
-    <section id="stats" class="stats hidden">
-      <div class="stat"><b id="s-total">0</b><span>faktur na liście</span></div>
-      <div class="stat ok"><b id="s-ok">0</b><span>zmatchowanych</span></div>
-      <div class="stat warn"><b id="s-bad">0</b><span>niezmatchowanych</span></div>
-      <div class="stat"><b id="s-months">–</b><span>miesiące w ewidencji</span></div>
-    </section>
-
-    <section class="card">
-      <h2><span class="dot ok"></span>Zmatchowane z ewidencją</h2>
-      <div class="scroll">
-        <table>
-          <thead><tr><th>Lp</th><th class="num">Kwota brutto</th><th>Nr KSEF</th><th>Kontrahent</th><th>Firma (ewidencja)</th></tr></thead>
-          <tbody id="t-ok"></tbody>
-        </table>
-      </div>
-      <div class="count" id="c-ok">Liczba rekordów: 0</div>
-    </section>
-
-    <section class="card">
-      <h2><span class="dot warn"></span>Niezmatchowane</h2>
-      <div class="scroll">
-        <table>
-          <thead><tr><th>Data</th><th>Nr faktury</th><th>Nr KSEF</th><th>Kontrahent</th><th class="num">Kwota brutto</th><th>Powód</th></tr></thead>
-          <tbody id="t-bad"></tbody>
-        </table>
-      </div>
-      <div class="count" id="c-bad">Liczba rekordów: 0</div>
-    </section>
-  </main>
-  <script src="renderer.js"></script>
+    <script src="renderer.js"></script>
 </body>
+
 </html>
