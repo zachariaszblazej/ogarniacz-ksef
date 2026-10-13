@@ -6,10 +6,10 @@
   "scripts": {
     "start": "electron ."
   },
-  "dependencies": {
-    "exceljs": "^4.4.0"
-  },
   "devDependencies": {
     "electron": "^33.0.0"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5"
   }
 }

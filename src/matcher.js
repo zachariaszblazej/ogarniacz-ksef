@@ -1,4 +1,4 @@
-const ExcelJS = require('exceljs');
+const XLSX = require('xlsx');
 
 const MONTHS = ['styczen', 'luty', 'marzec', 'kwiecien', 'maj', 'czerwiec',
   'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'];
@@ -8,17 +8,8 @@ function norm(text) {
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-// Wartość komórki -> prosta wartość (obsługa formuł, rich text, hiperłączy)
 function plain(v) {
-  if (v === null || v === undefined) return null;
-  if (v instanceof Date) return v;
-  if (typeof v === 'object') {
-    if ('result' in v) return plain(v.result);
-    if (v.richText) return v.richText.map(r => r.text).join('');
-    if ('text' in v) return plain(v.text);
-    return null;
-  }
-  return v;
+  return v === undefined ? null : v;
 }
 
 function toCents(v) {
@@ -40,50 +31,63 @@ function ksefMonth(nr) {
 }
 
 function fmtDate(v) {
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (v instanceof Date) {
+    const p = x => String(x).padStart(2, '0');
+    return `${v.getFullYear()}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+  }
   return v === null || v === undefined ? '' : String(v);
 }
 
+function openBook(path) {
+  return XLSX.readFile(path, { cellDates: true });
+}
+
+// Wartość komórki (wiersz i kolumna 1-based) lub null
+function cell(ws, row, col) {
+  const c = ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })];
+  return plain(c ? c.v : null);
+}
+
+function lastRow(ws) {
+  return ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']).e.r + 1 : 0;
+}
+
 async function readInvoices(path) {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(path);
-  const ws = wb.worksheets[0];
+  const wb = openBook(path);
+  const ws = wb.Sheets[wb.SheetNames[0]];
   const out = [];
-  ws.eachRow({ includeEmpty: false }, (row, n) => {
-    if (n < 2) return;
-    const g = i => plain(row.getCell(i).value);
-    const cells = [1, 2, 3, 4, 5].map(g);
-    if (cells.every(c => c === null || c === '')) return;
+  for (let n = 2; n <= lastRow(ws); n++) {
+    const cells = [1, 2, 3, 4, 5].map(c => cell(ws, n, c));
+    if (cells.every(c => c === null || c === '')) continue;
     out.push({
       date: fmtDate(cells[0]), number: cells[1] ?? '', ksef: cells[2] ?? '',
       contractor: cells[3] ?? '', amount: cells[4] ?? '', cents: toCents(cells[4]),
     });
-  });
+  }
   return out;
 }
 
 async function readLedger(path) {
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.readFile(path);
+  const wb = openBook(path);
   const ledger = {};
-  for (const ws of wb.worksheets) {
-    const name = norm(ws.name);
+  for (const sheetName of wb.SheetNames) {
+    const name = norm(sheetName);
     const idx = MONTHS.findIndex(m => name.includes(m));
     if (idx < 0) continue;
+    const ws = wb.Sheets[sheetName];
     const data = { przychod: new Map(), koszt: new Map() };
-    ws.eachRow({ includeEmpty: false }, (row, n) => {
-      if (n < 6) return;
-      const lp = plain(row.getCell(1).value);
-      if (lp === null || lp === '') return;
-      const firma = plain(row.getCell(5).value) ?? '';
+    for (let n = 6; n <= lastRow(ws); n++) {
+      const lp = cell(ws, n, 1);
+      if (lp === null || lp === '') continue;
+      const firma = cell(ws, n, 5) ?? '';
       for (const [key, col] of [['przychod', 13], ['koszt', 17]]) {
-        const c = toCents(row.getCell(col).value);
+        const c = toCents(cell(ws, n, col));
         if (!c) continue;
         const k = Math.abs(c);
         if (!data[key].has(k)) data[key].set(k, []);
         data[key].get(k).push({ lp, firma });
       }
-    });
+    }
     ledger[idx + 1] = data;
   }
   return ledger;
