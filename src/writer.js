@@ -43,7 +43,7 @@ function setCell(xml, ref, kind, value) {
     return xml.slice(0, m.index) + cell + xml.slice(m.index + m[0].length);
 }
 
-async function applyPlan(file, plan) {
+async function applyPlan(file, plan, backupDir) {
     const zip = await JSZip.loadAsync(fs.readFileSync(file));
     const paths = await sheetPaths(zip);
     const bySheet = new Map();
@@ -81,12 +81,14 @@ async function applyPlan(file, plan) {
 
     const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 
-    // kopia zapasowa obok oryginału
+    // kopia zapasowa: w podanym katalogu (domyślnie obok oryginału)
     const d = new Date();
     const p2 = x => String(x).padStart(2, '0');
     const stamp = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}-${p2(d.getHours())}${p2(d.getMinutes())}${p2(d.getSeconds())}`;
     const parsed = path.parse(file);
-    const backup = path.join(parsed.dir, `${parsed.name}.backup-${stamp}${parsed.ext}`);
+    const dir = backupDir || parsed.dir;
+    fs.mkdirSync(dir, { recursive: true });
+    const backup = path.join(dir, `${parsed.name}.backup-${stamp}${parsed.ext}`);
     fs.copyFileSync(file, backup);
 
     const tmp = file + '.tmp';

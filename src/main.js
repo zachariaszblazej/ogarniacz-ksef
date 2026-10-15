@@ -1,10 +1,19 @@
-const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { run } = require('./matcher');
 const { applyPlan } = require('./writer');
 
 let last = null; // { ledgerPath, mtimeMs, plan }
+
+// Wszystkie kopie zapasowe w jednym miejscu: %APPDATA%\<nazwa aplikacji>\backups
+const backupsDir = () => path.join(app.getPath('userData'), 'backups');
+
+ipcMain.handle('open-backups', async () => {
+    fs.mkdirSync(backupsDir(), { recursive: true });
+    await shell.openPath(backupsDir());
+    return backupsDir();
+});
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -42,7 +51,7 @@ ipcMain.handle('apply', async () => {
         if (fs.statSync(last.ledgerPath).mtimeMs !== last.mtimeMs) {
             throw new Error('Plik ewidencji zmienił się od czasu dopasowania. Uruchom „Dopasuj” ponownie.');
         }
-        const r = await applyPlan(last.ledgerPath, last.plan);
+        const r = await applyPlan(last.ledgerPath, last.plan, backupsDir());
         last = null; // plan zużyty - wymagaj ponownego dopasowania
         return { ok: true, ...r };
     } catch (e) {

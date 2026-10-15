@@ -124,3 +124,5 @@ $('m-ok').onclick = async () => {
     $('fill-info').textContent = '';
     showMsg(`Zapisano zmiany w ${r.changedRecords} wierszach. Kopia zapasowa: ${r.backup}`, true);
 };
+
+$('open-backups').onclick = () => api.openBackups();
