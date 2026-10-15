@@ -207,3 +207,31 @@ $('m-ok').onclick = async () => {
 };
 
 $('open-backups').onclick = () => api.openBackups();
+
+// ---- Wyczyść wszystko: powrót do stanu początkowego ----
+$('reset').onclick = async () => {
+    await api.reset();
+    paths.inv = paths.led = null;
+    for (const k of ['inv', 'led']) {
+        $('f-' + k).textContent = 'Nie wybrano pliku';
+        $('p-' + k).classList.remove('set');
+    }
+    $('run').disabled = true;
+    $('run').textContent = 'Dopasuj';
+    $('msg').className = 'msg hidden';
+    $('stats').classList.add('hidden');
+    for (const id of ['s-total', 's-ok', 's-bad']) $(id).textContent = '0';
+    $('s-months').textContent = '–';
+    $('t-ok').replaceChildren();
+    $('t-bad').replaceChildren();
+    $('c-ok').textContent = 'Liczba rekordów: 0';
+    $('c-bad').textContent = 'Liczba rekordów: 0';
+    fullPlan = [];
+    matchOn = [];
+    cellOff = new Set();
+    $('fill').disabled = true;
+    $('fill-info').textContent = '';
+    $('m-body').replaceChildren();
+    $('m-ack').checked = false;
+    $('modal').classList.add('hidden');
+};

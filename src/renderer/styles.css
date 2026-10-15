@@ -222,6 +222,7 @@ td {
 th {
     position: sticky;
     top: 0;
+    z-index: 2;
     background: #2d2f35;
     color: var(--muted);
     font-size: 11px;
@@ -346,3 +347,6 @@ td.toggle { cursor: pointer; user-select: none; }
 td.toggle:hover { background: var(--accent-soft); }
 td.toggle.skip { opacity: .4; }
 td.toggle.skip .new, td.toggle.skip .old { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+
+.run-col { display: flex; flex-direction: column; gap: 8px; justify-content: stretch; }
+.run-col button.primary { flex: 1; }

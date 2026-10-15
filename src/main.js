@@ -9,6 +9,8 @@ let last = null; // { ledgerPath, mtimeMs, plan }
 // Wszystkie kopie zapasowe w jednym miejscu: %APPDATA%\<nazwa aplikacji>\backups
 const backupsDir = () => path.join(app.getPath('userData'), 'backups');
 
+ipcMain.handle('reset', () => { last = null; return true; });
+
 ipcMain.handle('open-backups', async () => {
     fs.mkdirSync(backupsDir(), { recursive: true });
     await shell.openPath(backupsDir());

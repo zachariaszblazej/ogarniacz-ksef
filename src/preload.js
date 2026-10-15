@@ -5,4 +5,5 @@ contextBridge.exposeInMainWorld('api', {
     match: (inv, led) => ipcRenderer.invoke('match', inv, led),
     apply: selection => ipcRenderer.invoke('apply', selection),
     openBackups: () => ipcRenderer.invoke('open-backups'),
+    reset: () => ipcRenderer.invoke('reset'),
 });
