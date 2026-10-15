@@ -335,3 +335,14 @@ tbody tr:hover {
     justify-content: flex-end;
     gap: 10px;
 }
+.switch { position: relative; display: inline-block; width: 34px; height: 18px; }
+.switch input { opacity: 0; width: 0; height: 0; }
+.switch .knob { position: absolute; inset: 0; background: var(--line); border-radius: 18px; cursor: pointer; transition: background .15s; }
+.switch .knob::before { content: ""; position: absolute; width: 12px; height: 12px; left: 3px; top: 3px; background: var(--text); border-radius: 50%; transition: transform .15s; }
+.switch input:checked + .knob { background: var(--accent); }
+.switch input:checked + .knob::before { transform: translateX(16px); background: #1a1b1e; }
+tr.off td:not(:first-child) { opacity: .4; text-decoration: line-through; }
+td.toggle { cursor: pointer; user-select: none; }
+td.toggle:hover { background: var(--accent-soft); }
+td.toggle.skip { opacity: .4; }
+td.toggle.skip .new, td.toggle.skip .old { color: var(--muted); text-decoration: line-through; font-weight: 400; }

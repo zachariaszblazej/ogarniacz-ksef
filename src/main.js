@@ -44,14 +44,29 @@ ipcMain.handle('match', async (_e, invoicesPath, ledgerPath) => {
     }
 });
 
-// Zapisuje plan z ostatniego dopasowania (nie ufa danym z renderera)
-ipcMain.handle('apply', async () => {
+// Zapisuje wybrane przez użytkownika zmiany z planu ostatniego dopasowania.
+// Renderer przekazuje tylko {id, cells}; wartości zawsze pochodzą z planu w main.
+ipcMain.handle('apply', async (_e, selection) => {
     try {
         if (!last) throw new Error('Najpierw uruchom dopasowanie.');
         if (fs.statSync(last.ledgerPath).mtimeMs !== last.mtimeMs) {
             throw new Error('Plik ewidencji zmienił się od czasu dopasowania. Uruchom „Dopasuj” ponownie.');
         }
-        const r = await applyPlan(last.ledgerPath, last.plan, backupsDir());
+        const seen = new Set();
+        const filtered = [];
+        for (const s of Array.isArray(selection) ? selection : []) {
+            const item = Number.isInteger(s?.id) ? last.plan[s.id] : null;
+            if (!item || seen.has(s.id) || !Array.isArray(s.cells)) continue;
+            seen.add(s.id);
+            const clone = { ...item };
+            for (const c of ['b', 'c', 'f']) {
+                clone[c] = { ...item[c], changed: item[c].changed && s.cells.includes(c) };
+            }
+            clone.hasChanges = clone.b.changed || clone.c.changed || clone.f.changed;
+            if (clone.hasChanges) filtered.push(clone);
+        }
+        if (!filtered.length) throw new Error('Nie wybrano żadnych zmian do zapisania.');
+        const r = await applyPlan(last.ledgerPath, filtered, backupsDir());
         last = null; // plan zużyty - wymagaj ponownego dopasowania
         return { ok: true, ...r };
     } catch (e) {
