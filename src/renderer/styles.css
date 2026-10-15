@@ -345,8 +345,8 @@ tbody tr:hover {
 tr.off td:not(:first-child) { opacity: .4; text-decoration: line-through; }
 td.toggle { cursor: pointer; user-select: none; }
 td.toggle:hover { background: var(--accent-soft); }
-td.toggle.skip { opacity: .4; }
-td.toggle.skip .new, td.toggle.skip .old { color: var(--muted); text-decoration: line-through; font-weight: 400; }
+td.toggle.skip { opacity: 1; }
+td.toggle.skip .new, td.toggle.skip .old { color: #5aa9ff; text-decoration: line-through; font-weight: 400; }
 
 .run-col { display: flex; flex-direction: column; gap: 8px; justify-content: stretch; }
 .run-col button.primary { flex: 1; }

@@ -160,7 +160,7 @@ function updateModalSummary() {
     $('m-summary').textContent =
         `Zostanie zmienionych ${cells} komórek w ${eff.length} wierszach ewidencji (arkusze: ` +
         `${[...new Set(eff.map(e => e.p.sheet))].join(', ') || '—'}). ` +
-        'Stare wartości są przekreślone, nowe – wyróżnione. Kliknij zmianę, aby ją wyłączyć (szara = pominięta).';
+        'Stare wartości są przekreślone, nowe – wyróżnione. Kliknij zmianę, aby ją wyłączyć (niebieska = pominięta).';
     $('m-ok').disabled = !($('m-ack').checked && eff.length > 0);
     $('fill').disabled = eff.length === 0;
 }
