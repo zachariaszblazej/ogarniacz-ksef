@@ -2,15 +2,40 @@
     "name": "ogarniacz-ksef",
     "version": "0.2.0",
     "description": "Ogarniacz KSEF - dopasowanie faktur KSEF do ewidencji operacji finansowych",
+    "author": "Ogarniacz KSEF",
     "main": "src/main.js",
     "scripts": {
-        "start": "electron ."
+        "start": "electron .",
+        "dist": "electron-builder --win nsis",
+        "dist:portable": "electron-builder --win portable"
     },
     "devDependencies": {
-        "electron": "^33.0.0"
+        "electron": "^33.0.0",
+        "electron-builder": "^25.1.8"
     },
     "dependencies": {
         "jszip": "^3.10.2",
         "xlsx": "^0.18.5"
+    },
+    "build": {
+        "appId": "pl.ogarniacz.ksef",
+        "productName": "Ogarniacz KSEF",
+        "directories": { "output": "dist" },
+        "files": ["src/**/*", "package.json"],
+        "win": {
+            "target": ["nsis", "portable"],
+            "signAndEditExecutable": false
+        },
+        "nsis": {
+            "oneClick": false,
+            "perMachine": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "artifactName": "Ogarniacz-KSEF-${version}-setup.exe"
+        },
+        "portable": {
+            "artifactName": "Ogarniacz-KSEF-${version}-portable.exe"
+        }
     }
 }
