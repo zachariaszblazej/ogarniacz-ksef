@@ -216,7 +216,7 @@ function match(invoices, ledger) {
                     additions.push({
                         sheet: ledger[month].sheet, ksef, number: String(inv.number).trim(),
                         b: 'T',
-                        c: `${String(inv.number).trim()}_${ksef}`,
+                        c: `${String(inv.number).trim()}; ${ksef}`,
                         e: firstWord(inv.contractor),
                         f: date ? { text: date.text, serial: date.serial } : null,
                         amountCol: inv.cents > 0 ? 'P' : 'L', // koszt netto : przychód netto

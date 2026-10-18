@@ -260,10 +260,17 @@ function renderNewOps() {
         }
         const value = {
             b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '',
-            amount: `${a.amountCol}: ${a.amount.replace('.', ',')}`,
+            amount: a.amount.replace('.', ','),
         };
-        for (const key of ADD_CELLS) {
+        // kolumny podglądu; L i P są osobno, ale obie odpowiadają jednej komórce "amount"
+        for (const col of ['b', 'c', 'e', 'f', 'L', 'P']) {
             const td = tr.insertCell();
+            const key = col === 'L' || col === 'P' ? 'amount' : col;
+            if (key === 'amount' && col !== a.amountCol) {
+                td.textContent = '—';
+                td.className = 'same';
+                continue;
+            }
             if (key === 'f' && !a.f) {
                 td.textContent = '— (brak daty w nr KSEF)';
                 td.className = 'same';
