@@ -415,3 +415,10 @@ td.toggle.skip .old {
 .run-col button.primary {
     flex: 1;
 }
+.subhead { margin: 6px 0 0; font-weight: 600; }
+.dialog p.error, #m-summary.error { color: var(--err); }
+.error-text { color: var(--err); font-weight: 600; }
+.dialog { overflow-y: auto; }
+#m-new.hidden, #m-changes-wrap.hidden { display: none; }
+#fill-info, #new-info { margin-top: 4px; }
+main > .actions { margin-top: 0; }

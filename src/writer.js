@@ -43,18 +43,26 @@ function setCell(xml, ref, kind, value) {
     return xml.slice(0, m.index) + cell + xml.slice(m.index + m[0].length);
 }
 
-async function applyPlan(file, plan, backupDir) {
+// adds: nowe operacje do wpisania w wolne wiersze:
+//   { sheet, row, cells: ['b','c','e','f','amount'], b, c, e, f: {serial}|null, amountCol, amount }
+async function applyPlan(file, plan, backupDir, adds = []) {
     const zip = await JSZip.loadAsync(fs.readFileSync(file));
     const paths = await sheetPaths(zip);
     const bySheet = new Map();
+    const sheetEntry = name => {
+        if (!bySheet.has(name)) bySheet.set(name, { items: [], adds: [] });
+        return bySheet.get(name);
+    };
     for (const it of plan) {
-        if (!it.hasChanges) continue;
-        if (!bySheet.has(it.sheet)) bySheet.set(it.sheet, []);
-        bySheet.get(it.sheet).push(it);
+        if (it.hasChanges) sheetEntry(it.sheet).items.push(it);
+    }
+    for (const a of adds) {
+        if (a.cells.length) sheetEntry(a.sheet).adds.push(a);
     }
 
     let changedRecords = 0;
-    for (const [sheet, items] of bySheet) {
+    let addedRecords = 0;
+    for (const [sheet, { items, adds: sheetAdds }] of bySheet) {
         const p = paths[sheet];
         if (!p || !zip.file(p)) throw new Error(`Nie znaleziono arkusza „${sheet}”.`);
         let xml = await zip.file(p).async('string');
@@ -68,9 +76,18 @@ async function applyPlan(file, plan, backupDir) {
             }
             changedRecords++;
         }
+        for (const a of sheetAdds) {
+            if (a.cells.includes('b')) xml = setCell(xml, `B${a.row}`, 'str', a.b);
+            if (a.cells.includes('c')) xml = setCell(xml, `C${a.row}`, 'str', a.c);
+            if (a.cells.includes('e')) xml = setCell(xml, `E${a.row}`, 'str', a.e);
+            if (a.cells.includes('f') && a.f) xml = setCell(xml, `F${a.row}`, 'num', a.f.serial);
+            // kwota netto jako dokładny tekst dziesiętny (np. "3241.17") - bez liczenia na floatach
+            if (a.cells.includes('amount')) xml = setCell(xml, `${a.amountCol}${a.row}`, 'num', a.amount);
+            addedRecords++;
+        }
         zip.file(p, xml);
     }
-    if (!changedRecords) return { changedRecords: 0, backup: null };
+    if (!changedRecords && !addedRecords) return { changedRecords: 0, addedRecords: 0, backup: null };
 
     // wymuś przeliczenie formuł przy otwarciu
     let wb = await zip.file('xl/workbook.xml').async('string');
@@ -94,7 +111,7 @@ async function applyPlan(file, plan, backupDir) {
     const tmp = file + '.tmp';
     fs.writeFileSync(tmp, out);
     fs.renameSync(tmp, file);
-    return { changedRecords, backup };
+    return { changedRecords, addedRecords, backup };
 }
 
 module.exports = { applyPlan };

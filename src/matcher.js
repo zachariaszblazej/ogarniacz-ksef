@@ -39,7 +39,8 @@ function fmtDate(v) {
 }
 
 function openBook(path) {
-    return XLSX.readFile(path, { cellDates: true });
+    // sheetStubs: puste, ale sformatowane komórki też są widoczne (potrzebne do wykrywania wolnych wierszy)
+    return XLSX.readFile(path, { cellDates: true, sheetStubs: true });
 }
 
 // Wartość komórki (wiersz i kolumna 1-based) lub null
@@ -75,10 +76,18 @@ async function readLedger(path) {
         const idx = MONTHS.findIndex(m => name.includes(m));
         if (idx < 0) continue;
         const ws = wb.Sheets[sheetName];
-        const data = { przychod: new Map(), koszt: new Map() };
+        const data = {
+            przychod: new Map(), koszt: new Map(),
+            sheet: sheetName,
+            freeRows: [],   // wolne, sformatowane wiersze na nowe operacje: { row, lp }
+            cTexts: [],     // zawartość kolumny C (nr FV) - do wykrywania duplikatów
+        };
         for (let n = 6; n <= lastRow(ws); n++) {
             const lp = cell(ws, n, 1);
             if (lp === null || lp === '') continue;
+            const cVal = cell(ws, n, 3);
+            if (cVal !== null && cVal !== '') data.cTexts.push(String(cVal));
+            if (isFreeRow(ws, n)) data.freeRows.push({ row: n, lp });
             const firma = cell(ws, n, 5) ?? '';
             for (const [key, col] of [['przychod', 13], ['koszt', 17]]) {
                 const c = toCents(cell(ws, n, col));
@@ -94,6 +103,34 @@ async function readLedger(path) {
         ledger[idx + 1] = data;
     }
     return ledger;
+}
+
+// Kolumny wejściowe (ręcznie wypełniane) - wolny wiersz musi mieć je wszystkie puste
+const INPUT_COLS = [2, 3, 4, 5, 6, 7, 8, 12, 15, 16, 20, 22, 23, 24, 26];
+// Kolumny, do których zapisujemy - ich komórki muszą istnieć (być sformatowane) w wierszu
+const WRITE_COLS = [2, 3, 5, 6, 12, 16];
+
+function hasCell(ws, row, col) {
+    return Boolean(ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })]);
+}
+
+function isFreeRow(ws, n) {
+    if (!WRITE_COLS.every(c => hasCell(ws, n, c))) return false;
+    return INPUT_COLS.every(c => {
+        const v = cell(ws, n, c);
+        return v === null || v === '';
+    });
+}
+
+// Kwota brutto (w groszach) -> netto jako tekst "1234.56", bez arytmetyki zmiennoprzecinkowej na kwotach.
+// Dzielenie całkowitoliczbowe: round(brutto * 100 / 123); remis (.5) jest niemożliwy, bo 123 jest nieparzyste.
+function netString(cents) {
+    const nc = Math.round(Math.abs(cents) * 100 / 123);
+    return `${Math.floor(nc / 100)}.${String(nc % 100).padStart(2, '0')}`;
+}
+
+function firstWord(text) {
+    return String(text ?? '').trim().split(/\s+/)[0] || '';
 }
 
 function ksefDateParts(nr) {
@@ -140,17 +177,21 @@ function makePlanItem(inv, e) {
 function match(invoices, ledger) {
     const counts = new Map();
     for (const i of invoices) if (i.cents !== null) counts.set(i.cents, (counts.get(i.cents) || 0) + 1);
-    const matched = [], unmatched = [], plan = [];
+    const matched = [], unmatched = [], plan = [], additions = [];
+    const ledgerC = Object.values(ledger).flatMap(d => d.cTexts).join('\n');
+    const free = {};
+    for (const d of Object.values(ledger)) free[d.sheet] = d.freeRows;
     for (const inv of invoices) {
         let found = [];
         let reason = 'Inne';
+        let noMatch = false;
         const month = ksefMonth(inv.ksef);
         if (inv.cents !== null && counts.get(inv.cents) > 1) {
             reason = 'Więcej niż 1 faktura od księgowej z tą samą kwotą brutto';
         } else if (inv.cents !== null && ledger[month]) {
             const key = inv.cents < 0 ? 'przychod' : 'koszt';
             found = ledger[month][key].get(Math.abs(inv.cents)) || [];
-            if (found.length === 0) reason = 'Brak operacji finansowej dla tej faktury (brak matchy)';
+            if (found.length === 0) { reason = 'Brak operacji finansowej dla tej faktury (brak matchy)'; noMatch = true; }
             else if (found.length > 1) reason = 'Więcej niż 1 pasująca operacja finansowa (więcej niż 1 match)';
         }
         if (found.length === 1) {
@@ -160,14 +201,33 @@ function match(invoices, ledger) {
                 ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma,
             });
         } else {
-            unmatched.push({
+            const rec = {
                 date: inv.date, number: inv.number, ksef: inv.ksef, contractor: inv.contractor,
                 amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
                 reason,
-            });
+            };
+            if (noMatch) {
+                const ksef = String(inv.ksef).trim();
+                if (ksef && ledgerC.includes(ksef)) {
+                    rec.alreadyIn = true; // ta faktura została już wcześniej dopisana do ewidencji
+                } else {
+                    const date = ksefDateParts(ksef);
+                    rec.addId = additions.length;
+                    additions.push({
+                        sheet: ledger[month].sheet, ksef, number: String(inv.number).trim(),
+                        b: 'T',
+                        c: `${String(inv.number).trim()}_${ksef}`,
+                        e: firstWord(inv.contractor),
+                        f: date ? { text: date.text, serial: date.serial } : null,
+                        amountCol: inv.cents > 0 ? 'P' : 'L', // koszt netto : przychód netto
+                        amount: netString(inv.cents),
+                    });
+                }
+            }
+            unmatched.push(rec);
         }
     }
-    return { matched, unmatched, plan };
+    return { matched, unmatched, plan, additions, free };
 }
 
 async function run(invoicesPath, ledgerPath) {
@@ -177,4 +237,4 @@ async function run(invoicesPath, ledgerPath) {
     return { ...match(invoices, ledger), total: invoices.length, months };
 }
 
-module.exports = { run, ksefMonth, toCents, match };
+module.exports = { run, ksefMonth, toCents, match, netString };

@@ -39,15 +39,32 @@ ipcMain.handle('match', async (_e, invoicesPath, ledgerPath) => {
     try {
         const mtimeMs = fs.statSync(ledgerPath).mtimeMs;
         const result = await run(invoicesPath, ledgerPath);
-        last = { ledgerPath, mtimeMs, plan: result.plan };
+        last = { ledgerPath, mtimeMs, plan: result.plan, additions: result.additions, free: result.free };
         return { ok: true, result };
     } catch (e) {
         return { ok: false, error: e.message };
     }
 });
 
+const ADD_CELLS = ['b', 'c', 'e', 'f', 'amount'];
+
+// Przypisuje wybrane nowe operacje do kolejnych wolnych wierszy (osobno dla każdego arkusza).
+// To samo robi renderer na potrzeby podglądu - tu jest wersja rozstrzygająca.
+function assignFreeRows(selected, free) {
+    const pools = new Map();
+    const out = [];
+    for (const a of selected) {
+        if (!pools.has(a.sheet)) pools.set(a.sheet, [...(free[a.sheet] || [])]);
+        const slot = pools.get(a.sheet).shift();
+        if (!slot) throw new Error(`Brak wolnych wierszy w arkuszu „${a.sheet}”. Nie można dopisać wszystkich wybranych operacji.`);
+        out.push({ ...a, row: slot.row });
+    }
+    return out;
+}
+
 // Zapisuje wybrane przez użytkownika zmiany z planu ostatniego dopasowania.
 // Renderer przekazuje tylko {id, cells}; wartości zawsze pochodzą z planu w main.
+// selection = { changes: [{id, cells}], adds: [{id, cells}] }
 ipcMain.handle('apply', async (_e, selection) => {
     try {
         if (!last) throw new Error('Najpierw uruchom dopasowanie.');
@@ -56,7 +73,7 @@ ipcMain.handle('apply', async (_e, selection) => {
         }
         const seen = new Set();
         const filtered = [];
-        for (const s of Array.isArray(selection) ? selection : []) {
+        for (const s of Array.isArray(selection?.changes) ? selection.changes : []) {
             const item = Number.isInteger(s?.id) ? last.plan[s.id] : null;
             if (!item || seen.has(s.id) || !Array.isArray(s.cells)) continue;
             seen.add(s.id);
@@ -67,8 +84,21 @@ ipcMain.handle('apply', async (_e, selection) => {
             clone.hasChanges = clone.b.changed || clone.c.changed || clone.f.changed;
             if (clone.hasChanges) filtered.push(clone);
         }
-        if (!filtered.length) throw new Error('Nie wybrano żadnych zmian do zapisania.');
-        const r = await applyPlan(last.ledgerPath, filtered, backupsDir());
+
+        const seenAdd = new Set();
+        const selectedAdds = [];
+        for (const s of Array.isArray(selection?.adds) ? selection.adds : []) {
+            const item = Number.isInteger(s?.id) ? last.additions[s.id] : null;
+            if (!item || seenAdd.has(s.id) || !Array.isArray(s.cells)) continue;
+            seenAdd.add(s.id);
+            const cells = ADD_CELLS.filter(c => s.cells.includes(c));
+            if (cells.length) selectedAdds.push({ id: s.id, ...item, cells });
+        }
+        selectedAdds.sort((a, b) => a.id - b.id);
+        const adds = assignFreeRows(selectedAdds, last.free);
+
+        if (!filtered.length && !adds.length) throw new Error('Nie wybrano żadnych zmian do zapisania.');
+        const r = await applyPlan(last.ledgerPath, filtered, backupsDir(), adds);
         last = null; // plan zużyty - wymagaj ponownego dopasowania
         return { ok: true, ...r };
     } catch (e) {
