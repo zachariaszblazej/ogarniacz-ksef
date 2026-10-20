@@ -92,7 +92,12 @@ ipcMain.handle('apply', async (_e, selection) => {
             if (!item || seenAdd.has(s.id) || !Array.isArray(s.cells)) continue;
             seenAdd.add(s.id);
             const cells = ADD_CELLS.filter(c => s.cells.includes(c));
-            if (cells.length) selectedAdds.push({ id: s.id, ...item, cells });
+            const entry = { id: s.id, ...item, cells };
+            if (s.fuel === true && item.cost) {
+                entry.amountCol = 'T';
+                entry.amount = item.fuelAmount;
+            }
+            if (cells.length) selectedAdds.push(entry);
         }
         selectedAdds.sort((a, b) => a.id - b.id);
         const adds = assignFreeRows(selectedAdds, last.free);

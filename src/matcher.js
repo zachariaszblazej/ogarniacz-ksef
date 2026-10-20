@@ -253,7 +253,11 @@ function match(invoices, ledger) {
                         f: date ? { text: date.text, serial: date.serial } : null,
                         amountCol: inv.cents > 0 ? 'P' : 'L', // koszt netto : przychód netto
                         amount: netString(inv.cents),
+                        cost: inv.cents > 0,
+                        // paliwo: wpisujemy brutto w kol. T (S i U liczą się formułami)
+                        fuelAmount: `${Math.floor(inv.cents / 100)}.${String(inv.cents % 100).padStart(2, '0')}`,
                     });
+                    rec.canFuel = inv.cents > 0;
                 }
             }
             unmatched.push(rec);

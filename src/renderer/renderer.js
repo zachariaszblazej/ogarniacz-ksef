@@ -9,6 +9,7 @@ const CELLS = ['b', 'c', 'f'];
 let additions = [];       // z matchera (indeks = id)
 let freeRows = {};        // arkusz -> [{ row, lp }] wolne wiersze
 let addOn = [];           // przełączniki: czy dopisać fakturę
+let fuelOn = [];          // checkboxy "Paliwo": kwota do kol. T zamiast P
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
 const ADD_CELLS = ['b', 'c', 'e', 'f', 'amount'];
 
@@ -65,6 +66,7 @@ $('run').onclick = async () => {
     additions = adds;
     freeRows = free;
     addOn = adds.map(() => true);
+    fuelOn = adds.map(() => false);
     addCellOff = new Set();
     if (!months.length) showMsg('W ewidencji nie znaleziono arkuszy z nazwami miesięcy.', true);
 
@@ -125,7 +127,7 @@ function renderUnmatched(unmatched) {
     tbody.replaceChildren();
     if (!unmatched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 7;
+        td.colSpan = 8;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -144,8 +146,19 @@ function renderUnmatched(unmatched) {
             first.className = 'same';
             first.title = 'Numer KSEF tej faktury występuje już w kolumnie „nr FV” ewidencji';
         }
-        for (const k of ['date', 'number', 'ksef', 'contractor', 'amount', 'reason']) {
+        for (const k of ['date', 'number', 'ksef', 'contractor', 'amount', 'fuel', 'reason']) {
             const td = tr.insertCell();
+            if (k === 'fuel') {
+                if (r.canFuel) {
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.checked = false;
+                    cb.title = 'Faktura paliwowa: wpisz kwotę w kolumnie T (koszty brutto paliwo) zamiast P';
+                    cb.onchange = () => { fuelOn[r.addId] = cb.checked; refreshFillState(); };
+                    td.appendChild(cb);
+                }
+                continue;
+            }
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';
         }
@@ -256,15 +269,17 @@ function renderNewOps() {
             rowCell.textContent = slot ? slot.row : '—';
             lpCell.textContent = slot ? slot.lp : '—';
         }
+        const isFuel = Boolean(fuelOn[id] && a.cost);
         const value = {
             b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '',
-            amount: a.amount.replace('.', ','),
+            amount: (isFuel ? a.fuelAmount : a.amount).replace('.', ','),
         };
-        // kolumny podglądu; L i P są osobno, ale obie odpowiadają jednej komórce "amount"
-        for (const col of ['b', 'c', 'e', 'f', 'L', 'P']) {
+        const amountCol = isFuel ? 'T' : a.amountCol;
+        // kolumny podglądu; L, P i T są osobno, ale odpowiadają jednej komórce "amount"
+        for (const col of ['b', 'c', 'e', 'f', 'L', 'P', 'T']) {
             const td = tr.insertCell();
-            const key = col === 'L' || col === 'P' ? 'amount' : col;
-            if (key === 'amount' && col !== a.amountCol) {
+            const key = col === 'L' || col === 'P' || col === 'T' ? 'amount' : col;
+            if (key === 'amount' && col !== amountCol) {
                 td.textContent = '—';
                 td.className = 'same';
                 continue;
@@ -328,7 +343,7 @@ document.addEventListener('keydown', e => {
 $('m-ok').onclick = async () => {
     const selection = {
         changes: effectivePlan().map(e => ({ id: e.id, cells: e.cells })),
-        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells })),
+        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: Boolean(fuelOn[e.id] && e.a.cost) })),
     };
     $('m-ok').disabled = true;
     $('m-ok').textContent = 'Zapisuję…';
