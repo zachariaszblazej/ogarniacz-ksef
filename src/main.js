@@ -46,7 +46,7 @@ ipcMain.handle('match', async (_e, invoicesPath, ledgerPath) => {
     }
 });
 
-const ADD_CELLS = ['b', 'c', 'e', 'f', 'amount'];
+const ADD_CELLS = ['b', 'c', 'e', 'f', 'net', 'gross', 'vat', 'fuel'];
 
 // Przypisuje wybrane nowe operacje do kolejnych wolnych wierszy (osobno dla każdego arkusza).
 // To samo robi renderer na potrzeby podglądu - tu jest wersja rozstrzygająca.
@@ -91,13 +91,10 @@ ipcMain.handle('apply', async (_e, selection) => {
             const item = Number.isInteger(s?.id) ? last.additions[s.id] : null;
             if (!item || seenAdd.has(s.id) || !Array.isArray(s.cells)) continue;
             seenAdd.add(s.id);
-            const cells = ADD_CELLS.filter(c => s.cells.includes(c));
-            const entry = { id: s.id, ...item, cells };
-            if (s.fuel === true && item.cost) {
-                entry.amountCol = 'T';
-                entry.amount = item.fuelAmount;
-            }
-            if (cells.length) selectedAdds.push(entry);
+            const fuel = s.fuel === true && item.cost;
+            const cells = ADD_CELLS.filter(c => s.cells.includes(c) &&
+                (fuel ? !['net', 'gross', 'vat'].includes(c) : c !== 'fuel'));
+            if (cells.length) selectedAdds.push({ id: s.id, ...item, cells });
         }
         selectedAdds.sort((a, b) => a.id - b.id);
         const adds = assignFreeRows(selectedAdds, last.free);

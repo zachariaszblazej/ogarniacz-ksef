@@ -11,7 +11,10 @@ let freeRows = {};        // arkusz -> [{ row, lp }] wolne wiersze
 let addOn = [];           // przełączniki: czy dopisać fakturę
 let fuelOn = [];          // checkboxy "Paliwo": kwota do kol. T zamiast P
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
-const ADD_CELLS = ['b', 'c', 'e', 'f', 'amount'];
+const ADD_CELLS = ['b', 'c', 'e', 'f', 'net', 'gross', 'vat', 'fuel'];
+// które komórki kwot dotyczą danej faktury: zwykłej (netto/brutto/VAT) albo paliwowej (tylko T)
+const AMOUNT_KEYS = ['net', 'gross', 'vat'];
+const isFuelAdd = (a, id) => Boolean(fuelOn[id] && a.cost);
 
 function setPath(key, p) {
     if (!p) return;
@@ -183,7 +186,9 @@ function effectiveAdds() {
     const out = [];
     additions.forEach((a, id) => {
         if (!addOn[id]) return;
-        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && !addCellOff.has(id + ':' + c));
+        const fuel = isFuelAdd(a, id);
+        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) &&
+            (fuel ? !AMOUNT_KEYS.includes(c) : c !== 'fuel') && !addCellOff.has(id + ':' + c));
         if (!cells.length) return;
         if (!pools.has(a.sheet)) pools.set(a.sheet, [...(freeRows[a.sheet] || [])]);
         out.push({ id, a, cells, slot: pools.get(a.sheet).shift() || null });
@@ -269,21 +274,24 @@ function renderNewOps() {
             rowCell.textContent = slot ? slot.row : '—';
             lpCell.textContent = slot ? slot.lp : '—';
         }
-        const isFuel = Boolean(fuelOn[id] && a.cost);
+        const isFuel = isFuelAdd(a, id);
+        const comma = s => s.replace('.', ',');
         const value = {
             b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '',
-            amount: isFuel ? a.fuelAmount.replace('.', ',')
-                : `${a.amount.replace('.', ',')} (brutto ${a.gross.replace('.', ',')}, VAT ${a.vat.replace('.', ',')})`,
+            net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat), fuel: comma(a.fuelAmount),
         };
-        const amountCol = isFuel ? 'T' : a.amountCol;
-        // kolumny podglądu; L, P i T są osobno, ale odpowiadają jednej komórce "amount"
-        for (const col of ['b', 'c', 'e', 'f', 'L', 'P', 'T']) {
+        // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
+        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', M: 'gross', Q: 'gross', N: 'vat', R: 'vat', T: 'fuel' };
+        const activeCols = isFuel ? ['T'] : [a.amountCol, a.grossCol, a.vatCol];
+        for (const col of ['b', 'c', 'e', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'T']) {
             const td = tr.insertCell();
-            const key = col === 'L' || col === 'P' || col === 'T' ? 'amount' : col;
-            if (key === 'amount' && col !== amountCol) {
-                td.textContent = '—';
-                td.className = 'same';
-                continue;
+            const key = colKey[col];
+            if (AMOUNT_KEYS.includes(key) || key === 'fuel') {
+                if (!activeCols.includes(col)) {
+                    td.textContent = '—';
+                    td.className = 'same';
+                    continue;
+                }
             }
             if (key === 'f' && !a.f) {
                 td.textContent = '— (brak daty w nr KSEF)';
