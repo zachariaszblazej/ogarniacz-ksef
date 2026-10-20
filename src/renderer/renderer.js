@@ -272,7 +272,8 @@ function renderNewOps() {
         const isFuel = Boolean(fuelOn[id] && a.cost);
         const value = {
             b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '',
-            amount: (isFuel ? a.fuelAmount : a.amount).replace('.', ','),
+            amount: isFuel ? a.fuelAmount.replace('.', ',')
+                : `${a.amount.replace('.', ',')} (brutto ${a.gross.replace('.', ',')}, VAT ${a.vat.replace('.', ',')})`,
         };
         const amountCol = isFuel ? 'T' : a.amountCol;
         // kolumny podglądu; L, P i T są osobno, ale odpowiadają jednej komórce "amount"

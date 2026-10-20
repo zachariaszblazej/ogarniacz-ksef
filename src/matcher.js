@@ -145,6 +145,11 @@ function netString(cents) {
     return `${Math.floor(nc / 100)}.${String(nc % 100).padStart(2, '0')}`;
 }
 
+// Wartość fakturowa w groszach (nieujemna) -> tekst "1234.56"
+function centsString(c) {
+    return `${Math.floor(c / 100)}.${String(c % 100).padStart(2, '0')}`;
+}
+
 // Wartość komórki "Uwagi" (kol. Z) jako tekst do wyświetlenia
 function fmtNote(v) {
     if (v === null || v === undefined) return '';
@@ -253,6 +258,10 @@ function match(invoices, ledger) {
                         f: date ? { text: date.text, serial: date.serial } : null,
                         amountCol: inv.cents > 0 ? 'P' : 'L', // koszt netto : przychód netto
                         amount: netString(inv.cents),
+                        gross: centsString(Math.abs(inv.cents)),
+                        vat: centsString(Math.abs(inv.cents) - Math.round(Math.abs(inv.cents) * 100 / 123)),
+                        grossCol: inv.cents > 0 ? 'Q' : 'M',
+                        vatCol: inv.cents > 0 ? 'R' : 'N',
                         cost: inv.cents > 0,
                         // paliwo: wpisujemy brutto w kol. T (S i U liczą się formułami)
                         fuelAmount: `${Math.floor(inv.cents / 100)}.${String(inv.cents % 100).padStart(2, '0')}`,

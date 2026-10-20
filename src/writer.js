@@ -82,7 +82,14 @@ async function applyPlan(file, plan, backupDir, adds = []) {
             if (a.cells.includes('e')) xml = setCell(xml, `E${a.row}`, 'str', a.e);
             if (a.cells.includes('f') && a.f) xml = setCell(xml, `F${a.row}`, 'num', a.f.serial);
             // kwota netto jako dokładny tekst dziesiętny (np. "3241.17") - bez liczenia na floatach
-            if (a.cells.includes('amount')) xml = setCell(xml, `${a.amountCol}${a.row}`, 'num', a.amount);
+            if (a.cells.includes('amount')) {
+                xml = setCell(xml, `${a.amountCol}${a.row}`, 'num', a.amount);
+                // zwykła faktura: brutto i VAT jako wartości (zastępują formuły); paliwo (T) - S i U zostają formułami
+                if (a.amountCol !== 'T') {
+                    xml = setCell(xml, `${a.grossCol}${a.row}`, 'num', a.gross);
+                    xml = setCell(xml, `${a.vatCol}${a.row}`, 'num', a.vat);
+                }
+            }
             addedRecords++;
         }
         zip.file(p, xml);
