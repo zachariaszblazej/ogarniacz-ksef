@@ -152,8 +152,17 @@ function fmtNote(v) {
     return String(v).trim();
 }
 
+// Nazwa firmy do kolumny E: bez znaków specjalnych na początku; człony są dodawane, aż wynik osiągnie 20 znaków
+// - człon, na którym limit zostaje osiągnięty lub przekroczony, jest brany w całości.
+const COMPANY_MAX = 20;
 function firstWord(text) {
-    return String(text ?? '').trim().split(/\s+/)[0] || '';
+    const words = String(text ?? '').replace(/^[^\p{L}\p{N}]+/u, '').split(/\s+/).filter(Boolean);
+    let out = '';
+    for (const w of words) {
+        if (out.length >= COMPANY_MAX) break;
+        out = out ? out + ' ' + w : w;
+    }
+    return out;
 }
 
 function ksefDateParts(nr) {
