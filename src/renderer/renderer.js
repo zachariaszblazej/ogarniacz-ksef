@@ -265,7 +265,8 @@ function renderNewOps() {
         const rowCell = tr.insertCell();
         const lpCell = tr.insertCell();
         if (slots.has(id) && !slot) {
-            rowCell.textContent = 'brak wolnego wiersza';
+            rowCell.textContent = 'brak';
+            rowCell.title = 'Brak wolnego wiersza w arkuszu';
             rowCell.className = 'error-text';
             lpCell.textContent = '—';
         } else {
@@ -281,7 +282,7 @@ function renderNewOps() {
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
         const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', S: 'net', M: 'gross', Q: 'gross', T: 'gross', N: 'vat', R: 'vat', U: 'vat' };
         const activeCols = isFuel ? ['S', 'T', 'U'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['b', 'c', 'e', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U']) {
+        for (const col of ['e', 'b', 'c', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U']) {
             const td = tr.insertCell();
             const key = colKey[col];
             if (AMOUNT_KEYS.includes(key)) {

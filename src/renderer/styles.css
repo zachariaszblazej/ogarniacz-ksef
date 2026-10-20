@@ -310,6 +310,26 @@ tbody tr:hover {
     max-height: 45vh;
 }
 
+/* Nowe operacje: kolumny Arkusz, Wiersz, Lp, E: Firma przypięte przy poziomym przewijaniu */
+#m-new table { width: max-content; min-width: 100%; }
+#m-new th:nth-child(-n+4),
+#m-new td:nth-child(-n+4) {
+    position: sticky;
+    box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    background: var(--surface);
+}
+#m-new th:nth-child(-n+4) { background: #2d2f35; z-index: 4; }
+#m-new td:nth-child(-n+4) { z-index: 1; }
+#m-new th:nth-child(1), #m-new td:nth-child(1) { left: 0;     width: 130px; min-width: 130px; max-width: 130px; }
+#m-new th:nth-child(2), #m-new td:nth-child(2) { left: 130px; width: 80px;  min-width: 80px;  max-width: 80px; }
+#m-new th:nth-child(3), #m-new td:nth-child(3) { left: 210px; width: 60px;  min-width: 60px;  max-width: 60px; }
+#m-new th:nth-child(4), #m-new td:nth-child(4) {
+    left: 270px; width: 260px; min-width: 260px; max-width: 260px;
+    border-right: 1px solid var(--line);
+}
+
 .same {
     color: var(--muted);
 }
