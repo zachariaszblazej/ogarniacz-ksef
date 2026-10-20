@@ -92,10 +92,14 @@ async function readLedger(path) {
             if (isKsefDone(cell(ws, n, 2), cVal)) continue;
             const firma = cell(ws, n, 5) ?? '';
             const uwagi = fmtNote(cell(ws, n, 26));
-            for (const [key, col] of [['przychod', 13], ['koszt', 17]]) {
+            const seen = new Set();
+            // koszty: brutto (Q) oraz brutto paliwo (T)
+            for (const [key, col] of [['przychod', 13], ['koszt', 17], ['koszt', 20]]) {
                 const c = toCents(cell(ws, n, col));
                 if (!c) continue;
                 const k = Math.abs(c);
+                if (seen.has(key + k)) continue; // ta sama kwota w Q i T tego samego wiersza - jedna pozycja
+                seen.add(key + k);
                 if (!data[key].has(k)) data[key].set(k, []);
                 data[key].get(k).push({
                     lp, firma, uwagi, sheet: sheetName, row: n,
