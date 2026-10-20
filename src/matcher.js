@@ -169,7 +169,7 @@ function makePlanItem(inv, e) {
     const fOld = displayDate(e.f);
     const fNew = date ? date.text : fOld;
     const item = {
-        sheet: e.sheet, row: e.row, lp: e.lp, ksef,
+        sheet: e.sheet, row: e.row, lp: e.lp, firma: e.firma, ksef,
         b: { old: bOld, new: 'T', changed: bOld !== 'T' },
         c: { old: cOld, new: cNew, changed: cNew !== cOld },
         f: {

@@ -308,6 +308,7 @@ $('fill').onclick = () => {
         tr.insertCell().textContent = p.sheet;
         tr.insertCell().textContent = p.row;
         tr.insertCell().textContent = p.lp;
+        tr.insertCell().textContent = p.firma ?? '';
         diffCell(tr, id, 'b', p.b);
         diffCell(tr, id, 'c', p.c);
         diffCell(tr, id, 'f', p.f);
