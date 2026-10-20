@@ -11,7 +11,7 @@ let freeRows = {};        // arkusz -> [{ row, lp }] wolne wiersze
 let addOn = [];           // przełączniki: czy dopisać fakturę
 let fuelOn = [];          // checkboxy "Paliwo": kwota do kol. T zamiast P
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
-const ADD_CELLS = ['b', 'c', 'e', 'f', 'net', 'gross', 'vat', 'fuel'];
+const ADD_CELLS = ['b', 'c', 'e', 'f', 'net', 'gross', 'vat'];
 // które komórki kwot dotyczą danej faktury: zwykłej (netto/brutto/VAT) albo paliwowej (tylko T)
 const AMOUNT_KEYS = ['net', 'gross', 'vat'];
 const isFuelAdd = (a, id) => Boolean(fuelOn[id] && a.cost);
@@ -186,9 +186,7 @@ function effectiveAdds() {
     const out = [];
     additions.forEach((a, id) => {
         if (!addOn[id]) return;
-        const fuel = isFuelAdd(a, id);
-        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) &&
-            (fuel ? !AMOUNT_KEYS.includes(c) : c !== 'fuel') && !addCellOff.has(id + ':' + c));
+        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && !addCellOff.has(id + ':' + c));
         if (!cells.length) return;
         if (!pools.has(a.sheet)) pools.set(a.sheet, [...(freeRows[a.sheet] || [])]);
         out.push({ id, a, cells, slot: pools.get(a.sheet).shift() || null });
@@ -278,15 +276,15 @@ function renderNewOps() {
         const comma = s => s.replace('.', ',');
         const value = {
             b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '',
-            net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat), fuel: comma(a.fuelAmount),
+            net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
         };
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
-        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', M: 'gross', Q: 'gross', N: 'vat', R: 'vat', T: 'fuel' };
-        const activeCols = isFuel ? ['T'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['b', 'c', 'e', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'T']) {
+        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', S: 'net', M: 'gross', Q: 'gross', T: 'gross', N: 'vat', R: 'vat', U: 'vat' };
+        const activeCols = isFuel ? ['S', 'T', 'U'] : [a.amountCol, a.grossCol, a.vatCol];
+        for (const col of ['b', 'c', 'e', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U']) {
             const td = tr.insertCell();
             const key = colKey[col];
-            if (AMOUNT_KEYS.includes(key) || key === 'fuel') {
+            if (AMOUNT_KEYS.includes(key)) {
                 if (!activeCols.includes(col)) {
                     td.textContent = '—';
                     td.className = 'same';

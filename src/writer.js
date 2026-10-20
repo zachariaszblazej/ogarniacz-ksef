@@ -82,11 +82,10 @@ async function applyPlan(file, plan, backupDir, adds = []) {
             if (a.cells.includes('e')) xml = setCell(xml, `E${a.row}`, 'str', a.e);
             if (a.cells.includes('f') && a.f) xml = setCell(xml, `F${a.row}`, 'num', a.f.serial);
             // kwoty jako dokładny tekst dziesiętny (np. "3241.17") - bez liczenia na floatach;
-            // wartości zastępują formuły w komórkach brutto/VAT; paliwo: tylko T (S i U zostają formułami)
+            // wartości zastępują formuły w komórkach netto/brutto/VAT (koszty P/Q/R, przychody L/M/N, paliwo S/T/U)
             if (a.cells.includes('net')) xml = setCell(xml, `${a.amountCol}${a.row}`, 'num', a.amount);
             if (a.cells.includes('gross')) xml = setCell(xml, `${a.grossCol}${a.row}`, 'num', a.gross);
             if (a.cells.includes('vat')) xml = setCell(xml, `${a.vatCol}${a.row}`, 'num', a.vat);
-            if (a.cells.includes('fuel')) xml = setCell(xml, `T${a.row}`, 'num', a.fuelAmount);
             addedRecords++;
         }
         zip.file(p, xml);
