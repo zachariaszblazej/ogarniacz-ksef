@@ -88,6 +88,8 @@ async function readLedger(path) {
             const cVal = cell(ws, n, 3);
             if (cVal !== null && cVal !== '') data.cTexts.push(String(cVal));
             if (isFreeRow(ws, n)) data.freeRows.push({ row: n, lp });
+            // operacja już oznaczona jako będąca w KSEF (B = T) i z numerem KSEF w "nr FV" - pomijamy przy dopasowaniu
+            if (isKsefDone(cell(ws, n, 2), cVal)) continue;
             const firma = cell(ws, n, 5) ?? '';
             const uwagi = fmtNote(cell(ws, n, 26));
             for (const [key, col] of [['przychod', 13], ['koszt', 17]]) {
@@ -104,6 +106,15 @@ async function readLedger(path) {
         ledger[idx + 1] = data;
     }
     return ledger;
+}
+
+// Numer KSEF: 10 cyfr - 8 cyfr - 12 znaków [A-Z0-9] - 2 znaki [A-Z0-9] (35 znaków).
+// Lookaround zamiast \b, żeby numer był rozpoznany także obok "_" (np. "FV 1_1234567890-...").
+const KSEF_NUMBER_RE = /(?<![A-Za-z0-9])\d{10}-\d{8}-[A-Za-z0-9]{12}-[A-Za-z0-9]{2}(?![A-Za-z0-9])/;
+
+function isKsefDone(b, c) {
+    const bOk = b !== null && b !== undefined && String(b).trim().toUpperCase() === 'T';
+    return bOk && KSEF_NUMBER_RE.test(String(c ?? ''));
 }
 
 // Kolumny wejściowe (ręcznie wypełniane) - wolny wiersz musi mieć je wszystkie puste
