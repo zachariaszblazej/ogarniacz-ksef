@@ -1,4 +1,3 @@
-const MONTH_NAMES = ['sty', 'lut', 'mar', 'kwi', 'maj', 'cze', 'lip', 'sie', 'wrz', 'paź', 'lis', 'gru'];
 const $ = id => document.getElementById(id);
 const paths = { inv: null, led: null };
 let fullPlan = [];      // plan z matchera (indeks = id zmatchowanej operacji)
@@ -74,7 +73,6 @@ $('run').onclick = async () => {
     $('c-bad').textContent = 'Liczba rekordów: ' + unmatched.length;
     $('s-total').textContent = total;
     $('s-bad').textContent = unmatched.length;
-    $('s-months').textContent = months.length ? months.map(m => MONTH_NAMES[m - 1]).join(', ') : '–';
     $('stats').classList.remove('hidden');
     refreshFillState();
 };
@@ -367,7 +365,6 @@ $('reset').onclick = async () => {
     $('msg').className = 'msg hidden';
     $('stats').classList.add('hidden');
     for (const id of ['s-total', 's-ok', 's-bad']) $(id).textContent = '0';
-    $('s-months').textContent = '–';
     $('t-ok').replaceChildren();
     $('t-bad').replaceChildren();
     $('c-ok').textContent = 'Liczba rekordów: 0';
