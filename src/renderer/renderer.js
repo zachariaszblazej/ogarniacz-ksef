@@ -100,7 +100,7 @@ function renderMatched(matched) {
     tbody.replaceChildren();
     if (!matched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 6;
+        td.colSpan = 7;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -113,7 +113,7 @@ function renderMatched(matched) {
             tr.classList.toggle('off', !on);
             refreshFillState();
         }));
-        for (const k of ['lp', 'amount', 'ksef', 'contractor', 'firma']) {
+        for (const k of ['lp', 'amount', 'ksef', 'contractor', 'firma', 'uwagi']) {
             const td = tr.insertCell();
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';

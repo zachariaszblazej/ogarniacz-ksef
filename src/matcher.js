@@ -89,13 +89,14 @@ async function readLedger(path) {
             if (cVal !== null && cVal !== '') data.cTexts.push(String(cVal));
             if (isFreeRow(ws, n)) data.freeRows.push({ row: n, lp });
             const firma = cell(ws, n, 5) ?? '';
+            const uwagi = fmtNote(cell(ws, n, 26));
             for (const [key, col] of [['przychod', 13], ['koszt', 17]]) {
                 const c = toCents(cell(ws, n, col));
                 if (!c) continue;
                 const k = Math.abs(c);
                 if (!data[key].has(k)) data[key].set(k, []);
                 data[key].get(k).push({
-                    lp, firma, sheet: sheetName, row: n,
+                    lp, firma, uwagi, sheet: sheetName, row: n,
                     b: cell(ws, n, 2), c: cell(ws, n, 3), f: cell(ws, n, 6),
                 });
             }
@@ -127,6 +128,13 @@ function isFreeRow(ws, n) {
 function netString(cents) {
     const nc = Math.round(Math.abs(cents) * 100 / 123);
     return `${Math.floor(nc / 100)}.${String(nc % 100).padStart(2, '0')}`;
+}
+
+// Wartość komórki "Uwagi" (kol. Z) jako tekst do wyświetlenia
+function fmtNote(v) {
+    if (v === null || v === undefined) return '';
+    if (v instanceof Date) return fmtDate(v);
+    return String(v).trim();
 }
 
 function firstWord(text) {
@@ -198,7 +206,7 @@ function match(invoices, ledger) {
             plan.push(makePlanItem(inv, found[0]));
             matched.push({
                 lp: found[0].lp, amount: (inv.cents / 100).toFixed(2),
-                ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma,
+                ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma, uwagi: found[0].uwagi,
             });
         } else {
             const rec = {
