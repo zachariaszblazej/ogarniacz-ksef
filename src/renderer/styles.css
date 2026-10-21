@@ -186,6 +186,26 @@ button:disabled {
     gap: 8px;
 }
 
+/* zwijana karta (<details>) */
+.collapsible > summary {
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.collapsible > summary::-webkit-details-marker { display: none; }
+
+.collapsible > summary h2::after {
+    content: '▾';
+    margin-left: 4px;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--accent);
+}
+
+.collapsible:not([open]) > summary h2::after { content: '▸'; }
+.collapsible:not([open]) > summary h2 { margin-bottom: 0; }
+
 .dot {
     width: 8px;
     height: 8px;

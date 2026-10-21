@@ -203,7 +203,7 @@ function refreshFillState() {
     const eff = effectivePlan();
     const newCount = addOn.filter(Boolean).length;
     $('c-ok').textContent = `Liczba rekordów: ${matchedCount} (aktywnych: ${active})`;
-    $('s-ok').textContent = active;
+    $('s-ok').textContent = matchedCount;
     $('fill').disabled = eff.length === 0 && effectiveAdds().length === 0;
     $('fill-info').textContent = matchedCount === 0 ? ''
         : fullPlan.every(p => !p.hasChanges) ? 'Ewidencja jest już uzupełniona – brak zmian do zapisania.'
