@@ -1,4 +1,5 @@
 const $ = id => document.getElementById(id);
+api.version().then(v => { $('version').textContent = 'v' + v; });
 const paths = { inv: null, led: null, xml: null };
 let fullPlan = [];      // plan z matchera (indeks = id zmatchowanej operacji)
 let matchOn = [];       // przełączniki operacji

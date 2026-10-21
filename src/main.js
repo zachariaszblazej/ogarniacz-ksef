@@ -10,6 +10,7 @@ let last = null; // { ledgerPath, mtimeMs, plan }
 const backupsDir = () => path.join(app.getPath('userData'), 'backups');
 
 ipcMain.handle('reset', () => { last = null; return true; });
+ipcMain.handle('version', () => app.getVersion());
 
 ipcMain.handle('open-backups', async () => {
     fs.mkdirSync(backupsDir(), { recursive: true });

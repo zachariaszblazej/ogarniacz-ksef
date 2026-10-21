@@ -31,6 +31,12 @@ header {
     border-bottom: 1px solid var(--line);
 }
 
+.version {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 12px;
+}
+
 .logo {
     display: none;
 }
