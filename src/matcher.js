@@ -124,7 +124,7 @@ function isKsefDone(b, c) {
 }
 
 // Kolumny wejściowe (ręcznie wypełniane) - wolny wiersz musi mieć je wszystkie puste
-const INPUT_COLS = [2, 3, 4, 5, 6, 7, 8, 12, 15, 16, 20, 22, 23, 24, 25, 26];
+const INPUT_COLS = Array.from({ length: 25 }, (_, i) => i + 2); // B..Z
 // Kolumny, do których zapisujemy - ich komórki muszą istnieć (być sformatowane) w wierszu
 const WRITE_COLS = [2, 3, 5, 6, 12, 16];
 
@@ -132,9 +132,12 @@ function hasCell(ws, row, col) {
     return Boolean(ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })]);
 }
 
+// Wolny wiersz: kolumny B..Z bez wpisanych wartości. Formuły dające pusty wynik (""/0) nie liczą się.
 function isFreeRow(ws, n) {
     if (!WRITE_COLS.every(c => hasCell(ws, n, c))) return false;
     return INPUT_COLS.every(c => {
+        const raw = ws[XLSX.utils.encode_cell({ r: n - 1, c: c - 1 })];
+        if (raw && raw.f !== undefined && (raw.v === 0 || raw.v === '' || raw.v === undefined || raw.v === null)) return true;
         const v = cell(ws, n, c);
         return v === null || v === '';
     });
