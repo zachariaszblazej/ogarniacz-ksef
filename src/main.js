@@ -36,10 +36,15 @@ ipcMain.handle('pick-file', async (_e, title) => {
     return r.canceled ? null : r.filePaths[0];
 });
 
-ipcMain.handle('match', async (_e, invoicesPath, ledgerPath) => {
+ipcMain.handle('pick-dir', async (_e, title) => {
+    const r = await dialog.showOpenDialog({ title, properties: ['openDirectory'] });
+    return r.canceled ? null : r.filePaths[0];
+});
+
+ipcMain.handle('match', async (_e, invoicesPath, ledgerPath, xmlDir) => {
     try {
         const mtimeMs = fs.statSync(ledgerPath).mtimeMs;
-        const result = await run(invoicesPath, ledgerPath);
+        const result = await run(invoicesPath, ledgerPath, xmlDir);
         last = { ledgerPath, mtimeMs, plan: result.plan, additions: result.additions, free: result.free };
         return { ok: true, result };
     } catch (e) {
@@ -94,7 +99,8 @@ ipcMain.handle('apply', async (_e, selection) => {
             seenAdd.add(s.id);
             const fuel = s.fuel === true && item.cost;
             const inni = s.kind === 'inni' && item.cost;
-            const cells = ADD_CELLS.filter(c => s.cells.includes(c) && !(inni && c === 'gross'));
+            const cells = ADD_CELLS.filter(c => s.cells.includes(c) && !(inni && c === 'gross') &&
+                !(c === 'net' && item.amount === null) && !(c === 'vat' && item.vat === null));
             // paliwo: te same kwoty (netto, brutto, VAT) w kolumnach S, T, U;
             // inni: tylko netto i VAT w kolumnach X, Y (nie ma kolumny brutto)
             const entry = { id: s.id, ...item, cells };

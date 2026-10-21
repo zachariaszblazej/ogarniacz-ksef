@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-const paths = { inv: null, led: null };
+const paths = { inv: null, led: null, xml: null };
 let fullPlan = [];      // plan z matchera (indeks = id zmatchowanej operacji)
 let matchOn = [];       // przełączniki operacji
 let cellOff = new Set(); // wyłączone komórki: "id:b" / "id:c" / "id:f"
@@ -22,11 +22,12 @@ function setPath(key, p) {
     paths[key] = p;
     $('f-' + key).textContent = p;
     $('p-' + key).classList.add('set');
-    $('run').disabled = !(paths.inv && paths.led);
+    $('run').disabled = !(paths.inv && paths.led && paths.xml);
 }
 
 $('b-inv').onclick = async () => setPath('inv', await api.pickFile('Lista faktur od księgowej'));
 $('b-led').onclick = async () => setPath('led', await api.pickFile('Ewidencja operacji finansowych'));
+$('b-xml').onclick = async () => setPath('xml', await api.pickDir('Folder z fakturami XML (nr KSEF.xml)'));
 
 function fill(tbody, rows, keys, numKey) {
     tbody.replaceChildren();
@@ -58,7 +59,7 @@ $('run').onclick = async () => {
     $('msg').className = 'msg hidden';
     $('run').disabled = true;
     $('run').textContent = 'Liczę…';
-    const res = await api.match(paths.inv, paths.led);
+    const res = await api.match(paths.inv, paths.led, paths.xml);
     $('run').textContent = 'Dopasuj';
     $('run').disabled = false;
     if (!res.ok) return showMsg('Błąd: ' + res.error);
@@ -201,6 +202,7 @@ function effectiveAdds() {
         if (!addOn[id]) return;
         const inni = kindOf(a, id) === 'inni';
         const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && !(inni && c === 'gross') &&
+            !(c === 'net' && a.amount === null) && !(c === 'vat' && a.vat === null) &&
             !addCellOff.has(id + ':' + c));
         if (!cells.length) return;
         if (!pools.has(a.sheet)) pools.set(a.sheet, [...(freeRows[a.sheet] || [])]);
@@ -289,7 +291,7 @@ function renderNewOps() {
             lpCell.textContent = slot ? slot.lp : '—';
         }
         const isFuel = isFuelAdd(a, id);
-        const comma = s => s.replace('.', ',');
+        const comma = s => (s === null ? null : s.replace('.', ','));
         const value = {
             b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '',
             net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
@@ -298,13 +300,31 @@ function renderNewOps() {
         const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', S: 'net', X: 'net', M: 'gross', Q: 'gross', T: 'gross', N: 'vat', R: 'vat', U: 'vat', Y: 'vat' };
         const kind = kindOf(a, id);
         const activeCols = kind === 'fuel' ? ['S', 'T', 'U'] : kind === 'inni' ? ['X', 'Y'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['e', 'b', 'c', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
+        for (const col of ['e', 'verify', 'b', 'c', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
+            if (col === 'verify') {
+                const vt = tr.insertCell();
+                if (a.verify.ok) {
+                    vt.textContent = '✓';
+                    vt.className = 'verify-ok';
+                    vt.title = 'Suma netto i VAT z pliku XML zgadza się z kwotą brutto z listy';
+                } else {
+                    vt.textContent = `✗ (${a.verify.text})`;
+                    vt.className = 'verify-bad';
+                    vt.title = a.verify.text;
+                }
+                continue;
+            }
             const td = tr.insertCell();
             const key = colKey[col];
             if (AMOUNT_KEYS.includes(key)) {
                 if (!activeCols.includes(col)) {
                     td.textContent = '—';
                     td.className = 'same';
+                    continue;
+                }
+                if (value[key] === null) {
+                    td.textContent = '— (brak XML)';
+                    td.className = 'verify-bad';
                     continue;
                 }
             }
@@ -394,9 +414,9 @@ $('open-backups').onclick = () => api.openBackups();
 // ---- Wyczyść wszystko: powrót do stanu początkowego ----
 $('reset').onclick = async () => {
     await api.reset();
-    paths.inv = paths.led = null;
-    for (const k of ['inv', 'led']) {
-        $('f-' + k).textContent = 'Nie wybrano pliku';
+    paths.inv = paths.led = paths.xml = null;
+    for (const k of ['inv', 'led', 'xml']) {
+        $('f-' + k).textContent = k === 'xml' ? 'Nie wybrano folderu' : 'Nie wybrano pliku';
         $('p-' + k).classList.remove('set');
     }
     $('run').disabled = true;

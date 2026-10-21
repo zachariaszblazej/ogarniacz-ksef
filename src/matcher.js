@@ -1,4 +1,5 @@
 const XLSX = require('xlsx');
+const { readAmounts } = require('./xmlInvoice');
 
 const MONTHS = ['styczen', 'luty', 'marzec', 'kwiecien', 'maj', 'czerwiec',
     'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'];
@@ -217,7 +218,7 @@ function makePlanItem(inv, e) {
     return item;
 }
 
-function match(invoices, ledger) {
+function match(invoices, ledger, amountsFor) {
     const ledgerC = Object.values(ledger).flatMap(d => d.cTexts).join('\n');
     // faktura jest już w ewidencji, gdy jej numer KSEF występuje w kolumnie "nr FV"
     const isAlready = inv => { const k = String(inv.ksef ?? '').trim(); return k !== '' && ledgerC.includes(k); };
@@ -265,6 +266,19 @@ function match(invoices, ledger) {
                 const ksef = String(inv.ksef).trim();
                 {
                     const date = ksefDateParts(ksef);
+                    // kwoty netto i VAT wyłącznie z pliku XML faktury; bez poprawnego XML pozostają puste (null)
+                    const grossC = Math.abs(inv.cents);
+                    const xml = amountsFor ? amountsFor(ksef) : { error: 'nie podano folderu z XML' };
+                    let netC = null, vatC = null, verify;
+                    if (xml.error) {
+                        verify = { ok: false, text: `brak kwot netto i VAT: ${xml.error}` };
+                    } else {
+                        netC = xml.net;
+                        vatC = xml.vat;
+                        verify = netC + vatC === grossC
+                            ? { ok: true, text: '' }
+                            : { ok: false, text: `kwota brutto: ${centsString(grossC).replace('.', ',')}, suma netto i VAT: ${centsString(netC + vatC).replace('.', ',')}` };
+                    }
                     rec.addId = additions.length;
                     additions.push({
                         sheet: ledger[month].sheet, ksef, number: String(inv.number).trim(),
@@ -273,14 +287,13 @@ function match(invoices, ledger) {
                         e: firstWord(inv.contractor),
                         f: date ? { text: date.text, serial: date.serial } : null,
                         amountCol: inv.cents > 0 ? 'P' : 'L', // koszt netto : przychód netto
-                        amount: netString(inv.cents),
-                        gross: centsString(Math.abs(inv.cents)),
-                        vat: centsString(Math.abs(inv.cents) - Math.round(Math.abs(inv.cents) * 100 / 123)),
+                        amount: netC === null ? null : centsString(netC),
+                        gross: centsString(grossC),
+                        vat: vatC === null ? null : centsString(vatC),
+                        verify,
                         grossCol: inv.cents > 0 ? 'Q' : 'M',
                         vatCol: inv.cents > 0 ? 'R' : 'N',
                         cost: inv.cents > 0,
-                        // paliwo: wpisujemy brutto w kol. T (S i U liczą się formułami)
-                        fuelAmount: `${Math.floor(inv.cents / 100)}.${String(inv.cents % 100).padStart(2, '0')}`,
                     });
                     rec.canFuel = inv.cents > 0;
                     rec.canInni = inv.cents > 0;
@@ -292,11 +305,11 @@ function match(invoices, ledger) {
     return { matched, unmatched, already, plan, additions, free };
 }
 
-async function run(invoicesPath, ledgerPath) {
+async function run(invoicesPath, ledgerPath, xmlDir) {
     const invoices = await readInvoices(invoicesPath);
     const ledger = await readLedger(ledgerPath);
     const months = Object.keys(ledger).map(Number).sort((a, b) => a - b);
-    return { ...match(invoices, ledger), total: invoices.length, months };
+    return { ...match(invoices, ledger, ksef => readAmounts(xmlDir, ksef)), total: invoices.length, months };
 }
 
 module.exports = { run, ksefMonth, toCents, match, netString };

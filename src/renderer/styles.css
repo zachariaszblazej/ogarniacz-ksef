@@ -56,7 +56,7 @@ main {
 
 .pickers {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: 1fr 1fr 1fr auto;
     gap: 12px;
     align-items: stretch;
 }
@@ -332,24 +332,28 @@ tbody tr:hover {
 
 /* Nowe operacje: kolumny Arkusz, Wiersz, Lp, E: Firma przypięte przy poziomym przewijaniu */
 #m-new table { width: max-content; min-width: 100%; }
-#m-new th:nth-child(-n+4),
-#m-new td:nth-child(-n+4) {
+#m-new th:nth-child(-n+5),
+#m-new td:nth-child(-n+5) {
     position: sticky;
     box-sizing: border-box;
     overflow: hidden;
     text-overflow: ellipsis;
     background: var(--surface);
 }
-#m-new th:nth-child(-n+4) { background: #2d2f35; z-index: 4; }
-#m-new td:nth-child(-n+4) { z-index: 1; }
+#m-new th:nth-child(-n+5) { background: #2d2f35; z-index: 4; }
+#m-new td:nth-child(-n+5) { z-index: 1; }
 #m-new th:nth-child(1), #m-new td:nth-child(1) { left: 0;     width: 130px; min-width: 130px; max-width: 130px; }
 #m-new th:nth-child(2), #m-new td:nth-child(2) { left: 130px; width: 80px;  min-width: 80px;  max-width: 80px; }
 #m-new th:nth-child(3), #m-new td:nth-child(3) { left: 210px; width: 60px;  min-width: 60px;  max-width: 60px; }
-#m-new th:nth-child(4), #m-new td:nth-child(4) {
-    left: 270px; width: 260px; min-width: 260px; max-width: 260px;
+#m-new th:nth-child(4), #m-new td:nth-child(4) { left: 270px; width: 400px; min-width: 400px; max-width: 400px; }
+#m-new th:nth-child(5), #m-new td:nth-child(5) {
+    left: 670px; width: 440px; min-width: 440px; max-width: 440px;
     border-right: 0;
     box-shadow: inset -2px 0 0 var(--accent); /* border w border-collapse nie "przykleja się", cień tak */
 }
+
+.verify-ok { color: var(--ok); font-weight: 700; }
+.verify-bad { color: var(--err); }
 
 .same {
     color: var(--muted);
