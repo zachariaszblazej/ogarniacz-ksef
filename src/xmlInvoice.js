@@ -1,8 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
-// Znaczniki netto pod <Fa>: P_13_1 .. P_13_11 bez P_13_6 i P_13_6_1..3 (brak któregoś znacznika to nie błąd)
-const NET_TAGS = ['P_13_1', 'P_13_2', 'P_13_3', 'P_13_4', 'P_13_5', 'P_13_7', 'P_13_8', 'P_13_9', 'P_13_10', 'P_13_11'];
+// Znaczniki netto pod <Fa>: P_13_1 .. P_13_11 bez samego P_13_6 (ale z P_13_6_1..3); brak któregoś znacznika to nie błąd
+const NET_TAGS = ['P_13_1', 'P_13_2', 'P_13_3', 'P_13_4', 'P_13_5', 'P_13_6_1', 'P_13_6_2', 'P_13_6_3',
+    'P_13_7', 'P_13_8', 'P_13_9', 'P_13_10', 'P_13_11'];
 // Znaczniki VAT pod <Fa>
 const VAT_TAGS = ['P_14_1', 'P_14_2', 'P_14_3', 'P_14_4', 'P_14_5'];
 

@@ -347,7 +347,7 @@ tbody tr:hover {
 #m-new th:nth-child(3), #m-new td:nth-child(3) { left: 210px; width: 60px;  min-width: 60px;  max-width: 60px; }
 #m-new th:nth-child(4), #m-new td:nth-child(4) { left: 270px; width: 400px; min-width: 400px; max-width: 400px; }
 #m-new th:nth-child(5), #m-new td:nth-child(5) {
-    left: 670px; width: 440px; min-width: 440px; max-width: 440px;
+    left: 670px; width: 220px; min-width: 220px; max-width: 220px;
     border-right: 0;
     box-shadow: inset -2px 0 0 var(--accent); /* border w border-collapse nie "przykleja się", cień tak */
 }

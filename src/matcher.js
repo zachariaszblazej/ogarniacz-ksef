@@ -200,7 +200,10 @@ function makePlanItem(inv, e) {
     const ksef = String(inv.ksef).trim();
     const bOld = e.b === null ? '' : String(e.b).trim();
     const cOld = e.c === null ? '' : String(e.c).trim();
-    const cNew = cOld === '' ? ksef : (cOld.includes(ksef) ? cOld : `${cOld}; ${ksef}`);
+    // pusta kolumna C: "nr faktury; nr KSEF" (jak przy nowych operacjach); w przeciwnym razie dopisujemy sam nr KSEF
+    const number = String(inv.number ?? '').trim();
+    const cNew = cOld === '' ? (number ? `${number}; ${ksef}` : ksef)
+        : (cOld.includes(ksef) ? cOld : `${cOld}; ${ksef}`);
     const date = ksefDateParts(ksef);
     const fOld = displayDate(e.f);
     const fNew = date ? date.text : fOld;
