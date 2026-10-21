@@ -62,7 +62,7 @@ $('run').onclick = async () => {
     $('run').disabled = false;
     if (!res.ok) return showMsg('Błąd: ' + res.error);
 
-    const { matched, unmatched, total, months, plan, additions: adds, free } = res.result;
+    const { matched, unmatched, already, total, months, plan, additions: adds, free } = res.result;
     fullPlan = plan;
     matchOn = plan.map(() => true);
     cellOff = new Set();
@@ -75,6 +75,9 @@ $('run').onclick = async () => {
 
     renderMatched(matched);
     renderUnmatched(unmatched);
+    fill($('t-already'), already, ['date', 'number', 'ksef', 'contractor', 'amount'], 'amount');
+    $('c-already').textContent = 'Liczba rekordów: ' + already.length;
+    $('s-already').textContent = already.length;
     $('c-bad').textContent = 'Liczba rekordów: ' + unmatched.length;
     $('s-total').textContent = total;
     $('s-bad').textContent = unmatched.length;
@@ -387,8 +390,10 @@ $('reset').onclick = async () => {
     $('run').textContent = 'Dopasuj';
     $('msg').className = 'msg hidden';
     $('stats').classList.add('hidden');
-    for (const id of ['s-total', 's-ok', 's-bad']) $(id).textContent = '0';
+    for (const id of ['s-total', 's-ok', 's-bad', 's-already']) $(id).textContent = '0';
     $('t-ok').replaceChildren();
+    $('t-already').replaceChildren();
+    $('c-already').textContent = 'Liczba rekordów: 0';
     $('t-bad').replaceChildren();
     $('c-ok').textContent = 'Liczba rekordów: 0';
     $('c-bad').textContent = 'Liczba rekordów: 0';

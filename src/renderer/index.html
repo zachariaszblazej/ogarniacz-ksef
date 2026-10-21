@@ -41,6 +41,7 @@
             <div class="stat"><b id="s-total">0</b><span>faktur na liście</span></div>
             <div class="stat ok"><b id="s-ok">0</b><span>zmatchowanych</span></div>
             <div class="stat warn"><b id="s-bad">0</b><span>niezmatchowanych</span></div>
+            <div class="stat"><b id="s-already">0</b><span>już w ewidencji</span></div>
         </section>
 
         <section class="card">
@@ -86,6 +87,25 @@
             </div>
             <div class="count" id="c-bad">Liczba rekordów: 0</div>
             <div class="hint" id="new-info"></div>
+        </section>
+
+        <section class="card">
+            <h2><span class="dot"></span>Już w ewidencji</h2>
+            <div class="scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Nr faktury</th>
+                            <th>Nr KSEF</th>
+                            <th>Kontrahent</th>
+                            <th class="num">Kwota brutto</th>
+                        </tr>
+                    </thead>
+                    <tbody id="t-already"></tbody>
+                </table>
+            </div>
+            <div class="count" id="c-already">Liczba rekordów: 0</div>
         </section>
 
         <div class="actions">

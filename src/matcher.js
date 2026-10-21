@@ -212,13 +212,25 @@ function makePlanItem(inv, e) {
 }
 
 function match(invoices, ledger) {
-    const counts = new Map();
-    for (const i of invoices) if (i.cents !== null) counts.set(i.cents, (counts.get(i.cents) || 0) + 1);
-    const matched = [], unmatched = [], plan = [], additions = [];
     const ledgerC = Object.values(ledger).flatMap(d => d.cTexts).join('\n');
+    // faktura jest już w ewidencji, gdy jej numer KSEF występuje w kolumnie "nr FV"
+    const isAlready = inv => { const k = String(inv.ksef ?? '').trim(); return k !== '' && ledgerC.includes(k); };
+    // faktury już w ewidencji nie liczą się do wykrywania duplikatów kwoty
+    const counts = new Map();
+    for (const i of invoices) {
+        if (i.cents !== null && !isAlready(i)) counts.set(i.cents, (counts.get(i.cents) || 0) + 1);
+    }
+    const matched = [], unmatched = [], already = [], plan = [], additions = [];
     const free = {};
     for (const d of Object.values(ledger)) free[d.sheet] = d.freeRows;
     for (const inv of invoices) {
+        if (isAlready(inv)) {
+            already.push({
+                date: inv.date, number: inv.number, ksef: inv.ksef, contractor: inv.contractor,
+                amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
+            });
+            continue;
+        }
         let found = [];
         let reason = 'Inne';
         let noMatch = false;
@@ -245,9 +257,7 @@ function match(invoices, ledger) {
             };
             if (noMatch) {
                 const ksef = String(inv.ksef).trim();
-                if (ksef && ledgerC.includes(ksef)) {
-                    rec.alreadyIn = true; // ta faktura została już wcześniej dopisana do ewidencji
-                } else {
+                {
                     const date = ksefDateParts(ksef);
                     rec.addId = additions.length;
                     additions.push({
@@ -272,7 +282,7 @@ function match(invoices, ledger) {
             unmatched.push(rec);
         }
     }
-    return { matched, unmatched, plan, additions, free };
+    return { matched, unmatched, already, plan, additions, free };
 }
 
 async function run(invoicesPath, ledgerPath) {
