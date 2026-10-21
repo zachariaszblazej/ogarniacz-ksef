@@ -9,12 +9,13 @@ const CELLS = ['b', 'c', 'f'];
 let additions = [];       // z matchera (indeks = id)
 let freeRows = {};        // arkusz -> [{ row, lp }] wolne wiersze
 let addOn = [];           // przełączniki: czy dopisać fakturę
-let fuelOn = [];          // checkboxy "Paliwo": kwota do kol. T zamiast P
+let fuelOn = [];          // rodzaj kosztu per faktura: '' (zwykły) | 'fuel' (paliwo, S-U) | 'inni' (X, Y) - wzajemnie wykluczające się
+const kindOf = (a, id) => (a.cost ? fuelOn[id] || '' : '');
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
 const ADD_CELLS = ['b', 'c', 'e', 'f', 'net', 'gross', 'vat'];
 // które komórki kwot dotyczą danej faktury: zwykłej (netto/brutto/VAT) albo paliwowej (tylko T)
 const AMOUNT_KEYS = ['net', 'gross', 'vat'];
-const isFuelAdd = (a, id) => Boolean(fuelOn[id] && a.cost);
+const isFuelAdd = (a, id) => kindOf(a, id) === 'fuel';
 
 function setPath(key, p) {
     if (!p) return;
@@ -69,7 +70,7 @@ $('run').onclick = async () => {
     additions = adds;
     freeRows = free;
     addOn = adds.map(() => true);
-    fuelOn = adds.map(() => false);
+    fuelOn = adds.map(() => '');
     addCellOff = new Set();
     if (!months.length) showMsg('W ewidencji nie znaleziono arkuszy z nazwami miesięcy.', true);
 
@@ -133,7 +134,7 @@ function renderUnmatched(unmatched) {
     tbody.replaceChildren();
     if (!unmatched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 8;
+        td.colSpan = 9;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -152,15 +153,24 @@ function renderUnmatched(unmatched) {
             first.className = 'same';
             first.title = 'Numer KSEF tej faktury występuje już w kolumnie „nr FV” ewidencji';
         }
-        for (const k of ['date', 'number', 'ksef', 'contractor', 'amount', 'fuel', 'reason']) {
+        const kindBoxes = {};
+        for (const k of ['date', 'number', 'ksef', 'contractor', 'amount', 'fuel', 'inni', 'reason']) {
             const td = tr.insertCell();
-            if (k === 'fuel') {
+            if (k === 'fuel' || k === 'inni') {
                 if (r.canFuel) {
                     const cb = document.createElement('input');
                     cb.type = 'checkbox';
                     cb.checked = false;
-                    cb.title = 'Faktura paliwowa: wpisz kwotę w kolumnie T (koszty brutto paliwo) zamiast P';
-                    cb.onchange = () => { fuelOn[r.addId] = cb.checked; refreshFillState(); };
+                    cb.title = k === 'fuel'
+                        ? 'Faktura paliwowa: netto, brutto i VAT trafią do kolumn S, T, U zamiast P, Q, R'
+                        : 'Inni robią zakupy: netto i VAT trafią do kolumn X, Y (bez brutto)';
+                    kindBoxes[k] = cb;
+                    cb.onchange = () => {
+                        // paliwo i „inni” wykluczają się wzajemnie
+                        if (cb.checked) for (const o of Object.keys(kindBoxes)) if (o !== k) kindBoxes[o].checked = false;
+                        fuelOn[r.addId] = cb.checked ? k : '';
+                        refreshFillState();
+                    };
                     td.appendChild(cb);
                 }
                 continue;
@@ -189,7 +199,9 @@ function effectiveAdds() {
     const out = [];
     additions.forEach((a, id) => {
         if (!addOn[id]) return;
-        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && !addCellOff.has(id + ':' + c));
+        const inni = kindOf(a, id) === 'inni';
+        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && !(inni && c === 'gross') &&
+            !addCellOff.has(id + ':' + c));
         if (!cells.length) return;
         if (!pools.has(a.sheet)) pools.set(a.sheet, [...(freeRows[a.sheet] || [])]);
         out.push({ id, a, cells, slot: pools.get(a.sheet).shift() || null });
@@ -283,9 +295,10 @@ function renderNewOps() {
             net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
         };
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
-        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', S: 'net', M: 'gross', Q: 'gross', T: 'gross', N: 'vat', R: 'vat', U: 'vat' };
-        const activeCols = isFuel ? ['S', 'T', 'U'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['e', 'b', 'c', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U']) {
+        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', S: 'net', X: 'net', M: 'gross', Q: 'gross', T: 'gross', N: 'vat', R: 'vat', U: 'vat', Y: 'vat' };
+        const kind = kindOf(a, id);
+        const activeCols = kind === 'fuel' ? ['S', 'T', 'U'] : kind === 'inni' ? ['X', 'Y'] : [a.amountCol, a.grossCol, a.vatCol];
+        for (const col of ['e', 'b', 'c', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
             const td = tr.insertCell();
             const key = colKey[col];
             if (AMOUNT_KEYS.includes(key)) {
@@ -354,7 +367,7 @@ document.addEventListener('keydown', e => {
 $('m-ok').onclick = async () => {
     const selection = {
         changes: effectivePlan().map(e => ({ id: e.id, cells: e.cells })),
-        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: Boolean(fuelOn[e.id] && e.a.cost) })),
+        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: kindOf(e.a, e.id) === 'fuel', kind: kindOf(e.a, e.id) })),
     };
     $('m-ok').disabled = true;
     $('m-ok').textContent = 'Zapisuję…';

@@ -93,9 +93,11 @@ async function readLedger(path) {
             const firma = cell(ws, n, 5) ?? '';
             const uwagi = fmtNote(cell(ws, n, 26));
             const seen = new Set();
-            // koszty: brutto (Q) oraz brutto paliwo (T)
-            for (const [key, col] of [['przychod', 13], ['koszt', 17], ['koszt', 20]]) {
-                const c = toCents(cell(ws, n, col));
+            // koszty: brutto (Q), brutto paliwo (T) oraz "Inni robią zakupy" = netto (X) + VAT (Y) - nie ma kolumny brutto
+            const cols = [['przychod', 13], ['koszt', 17], ['koszt', 20]];
+            const inni = (toCents(cell(ws, n, 24)) || 0) + (toCents(cell(ws, n, 25)) || 0);
+            for (const [key, col] of cols.concat(inni ? [['koszt', 'inni']] : [])) {
+                const c = col === 'inni' ? inni : toCents(cell(ws, n, col));
                 if (!c) continue;
                 const k = Math.abs(c);
                 if (seen.has(key + k)) continue; // ta sama kwota w Q i T tego samego wiersza - jedna pozycja
@@ -122,7 +124,7 @@ function isKsefDone(b, c) {
 }
 
 // Kolumny wejściowe (ręcznie wypełniane) - wolny wiersz musi mieć je wszystkie puste
-const INPUT_COLS = [2, 3, 4, 5, 6, 7, 8, 12, 15, 16, 20, 22, 23, 24, 26];
+const INPUT_COLS = [2, 3, 4, 5, 6, 7, 8, 12, 15, 16, 20, 22, 23, 24, 25, 26];
 // Kolumny, do których zapisujemy - ich komórki muszą istnieć (być sformatowane) w wierszu
 const WRITE_COLS = [2, 3, 5, 6, 12, 16];
 
@@ -277,6 +279,7 @@ function match(invoices, ledger) {
                         fuelAmount: `${Math.floor(inv.cents / 100)}.${String(inv.cents % 100).padStart(2, '0')}`,
                     });
                     rec.canFuel = inv.cents > 0;
+                    rec.canInni = inv.cents > 0;
                 }
             }
             unmatched.push(rec);

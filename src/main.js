@@ -93,10 +93,13 @@ ipcMain.handle('apply', async (_e, selection) => {
             if (!item || seenAdd.has(s.id) || !Array.isArray(s.cells)) continue;
             seenAdd.add(s.id);
             const fuel = s.fuel === true && item.cost;
-            const cells = ADD_CELLS.filter(c => s.cells.includes(c));
-            // paliwo: te same kwoty (netto, brutto, VAT), ale w kolumnach S, T, U
+            const inni = s.kind === 'inni' && item.cost;
+            const cells = ADD_CELLS.filter(c => s.cells.includes(c) && !(inni && c === 'gross'));
+            // paliwo: te same kwoty (netto, brutto, VAT) w kolumnach S, T, U;
+            // inni: tylko netto i VAT w kolumnach X, Y (nie ma kolumny brutto)
             const entry = { id: s.id, ...item, cells };
-            if (fuel) Object.assign(entry, { amountCol: 'S', grossCol: 'T', vatCol: 'U' });
+            if (s.kind === 'fuel' && item.cost) Object.assign(entry, { amountCol: 'S', grossCol: 'T', vatCol: 'U' });
+            if (inni) Object.assign(entry, { amountCol: 'X', grossCol: null, vatCol: 'Y' });
             if (cells.length) selectedAdds.push(entry);
         }
         selectedAdds.sort((a, b) => a.id - b.id);

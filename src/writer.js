@@ -84,7 +84,7 @@ async function applyPlan(file, plan, backupDir, adds = []) {
             // kwoty jako dokładny tekst dziesiętny (np. "3241.17") - bez liczenia na floatach;
             // wartości zastępują formuły w komórkach netto/brutto/VAT (koszty P/Q/R, przychody L/M/N, paliwo S/T/U)
             if (a.cells.includes('net')) xml = setCell(xml, `${a.amountCol}${a.row}`, 'num', a.amount);
-            if (a.cells.includes('gross')) xml = setCell(xml, `${a.grossCol}${a.row}`, 'num', a.gross);
+            if (a.cells.includes('gross') && a.grossCol) xml = setCell(xml, `${a.grossCol}${a.row}`, 'num', a.gross);
             if (a.cells.includes('vat')) xml = setCell(xml, `${a.vatCol}${a.row}`, 'num', a.vat);
             addedRecords++;
         }
