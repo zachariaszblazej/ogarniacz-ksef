@@ -132,12 +132,13 @@ function hasCell(ws, row, col) {
     return Boolean(ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })]);
 }
 
-// Wolny wiersz: kolumny B..Z bez wpisanych wartości. Formuły dające pusty wynik (""/0) nie liczą się.
+// Wolny wiersz: kolumny B..Z bez wpisanych wartości. Formuły z odwołaniami/funkcjami nie liczą się.
 function isFreeRow(ws, n) {
     if (!WRITE_COLS.every(c => hasCell(ws, n, c))) return false;
     return INPUT_COLS.every(c => {
         const raw = ws[XLSX.utils.encode_cell({ r: n - 1, c: c - 1 })];
-        if (raw && raw.f !== undefined && (raw.v === 0 || raw.v === '' || raw.v === undefined || raw.v === null)) return true;
+        // formuły (np. =IF(...), =L6*1.23) nie liczą się; wyjątkiem są stałe wyrażenia typu =16.99/1.23 - to wpisana kwota
+        if (raw && raw.f !== undefined && !/^[\d\s.,+\-*/()]+$/.test(String(raw.f))) return true;
         const v = cell(ws, n, c);
         return v === null || v === '';
     });
