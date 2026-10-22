@@ -256,7 +256,7 @@ function match(invoices, ledger, amountsFor) {
         if (found.length === 1) {
             plan.push(makePlanItem(inv, found[0]));
             matched.push({
-                lp: found[0].lp, amount: (inv.cents / 100).toFixed(2),
+                lp: found[0].lp, amount: (inv.cents / 100).toFixed(2), date: inv.date,
                 ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma, uwagi: found[0].uwagi,
             });
         } else {
