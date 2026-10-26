@@ -78,7 +78,7 @@ $('run').onclick = async () => {
 
     renderMatched(matched);
     renderUnmatched(unmatched);
-    fill($('t-already'), already, ['date', 'number', 'ksef', 'contractor', 'amount'], 'amount');
+    fill($('t-already'), already, ['date', 'ksef', 'contractor', 'amount'], 'amount');
     $('c-already').textContent = 'Liczba rekordów: ' + already.length;
     $('s-already').textContent = already.length;
     $('c-bad').textContent = 'Liczba rekordów: ' + unmatched.length;
@@ -136,7 +136,7 @@ function renderUnmatched(unmatched) {
     tbody.replaceChildren();
     if (!unmatched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 9;
+        td.colSpan = 8;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -156,7 +156,7 @@ function renderUnmatched(unmatched) {
             first.title = 'Numer KSEF tej faktury występuje już w kolumnie „nr FV” ewidencji';
         }
         const kindBoxes = {};
-        for (const k of ['date', 'number', 'ksef', 'contractor', 'amount', 'fuel', 'inni', 'reason']) {
+        for (const k of ['date', 'ksef', 'contractor', 'amount', 'fuel', 'inni', 'reason']) {
             const td = tr.insertCell();
             if (k === 'fuel' || k === 'inni') {
                 if (r.canFuel) {
@@ -280,15 +280,12 @@ function renderNewOps() {
         const tr = body.insertRow();
         const slot = slots.get(id);
         tr.insertCell().textContent = a.sheet;
-        const rowCell = tr.insertCell();
         const lpCell = tr.insertCell();
         if (slots.has(id) && !slot) {
-            rowCell.textContent = 'brak';
-            rowCell.title = 'Brak wolnego wiersza w arkuszu';
-            rowCell.className = 'error-text';
-            lpCell.textContent = '—';
+            lpCell.textContent = 'brak';
+            lpCell.title = 'Brak wolnego wiersza w arkuszu';
+            lpCell.className = 'error-text';
         } else {
-            rowCell.textContent = slot ? slot.row : '—';
             lpCell.textContent = slot ? slot.lp : '—';
         }
         const isFuel = isFuelAdd(a, id);
@@ -298,10 +295,10 @@ function renderNewOps() {
             net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
         };
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
-        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', L: 'net', P: 'net', S: 'net', X: 'net', M: 'gross', Q: 'gross', T: 'gross', N: 'vat', R: 'vat', U: 'vat', Y: 'vat' };
+        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', P: 'net', S: 'net', X: 'net', Q: 'gross', T: 'gross', R: 'vat', U: 'vat', Y: 'vat' };
         const kind = kindOf(a, id);
         const activeCols = kind === 'fuel' ? ['S', 'T', 'U'] : kind === 'inni' ? ['X', 'Y'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['e', 'verify', 'b', 'c', 'f', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
+        for (const col of ['e', 'verify', 'b', 'c', 'f', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
             if (col === 'verify') {
                 const vt = tr.insertCell();
                 if (a.verify.ok) {
@@ -364,7 +361,6 @@ $('fill').onclick = () => {
         changeRows++;
         const tr = body.insertRow();
         tr.insertCell().textContent = p.sheet;
-        tr.insertCell().textContent = p.row;
         tr.insertCell().textContent = p.lp;
         tr.insertCell().textContent = p.firma ?? '';
         diffCell(tr, id, 'b', p.b);

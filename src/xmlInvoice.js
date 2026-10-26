@@ -43,7 +43,8 @@ function readAmounts(dir, ksef) {
         const xml = fs.readFileSync(file, 'utf8');
         const fa = /<(?:[\w.-]+:)?Fa(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?Fa>/.exec(xml);
         if (!fa) return { error: 'w pliku XML nie znaleziono sekcji <Fa>' };
-        return { net: Math.abs(sumTags(fa[1], NET_TAGS)), vat: Math.abs(sumTags(fa[1], VAT_TAGS)) };
+        // kwoty ze znakiem (korekty mogą mieć wartości ujemne)
+        return { net: sumTags(fa[1], NET_TAGS), vat: sumTags(fa[1], VAT_TAGS) };
     } catch (e) {
         return { error: e.message };
     }

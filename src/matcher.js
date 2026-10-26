@@ -78,7 +78,7 @@ async function readLedger(path) {
         if (idx < 0) continue;
         const ws = wb.Sheets[sheetName];
         const data = {
-            przychod: new Map(), koszt: new Map(),
+            koszt: new Map(), // klucz: kwota brutto ze znakiem (korekty mają minus)
             sheet: sheetName,
             freeRows: [],   // wolne, sformatowane wiersze na nowe operacje: { row, lp }
             cTexts: [],     // zawartość kolumny C (nr FV) - do wykrywania duplikatów
@@ -94,13 +94,13 @@ async function readLedger(path) {
             const firma = cell(ws, n, 5) ?? '';
             const uwagi = fmtNote(cell(ws, n, 26));
             const seen = new Set();
-            // koszty: brutto (Q), brutto paliwo (T) oraz "Inni robią zakupy" = netto (X) + VAT (Y) - nie ma kolumny brutto
-            const cols = [['przychod', 13], ['koszt', 17], ['koszt', 20]];
+            // tylko koszty: brutto (Q), brutto paliwo (T) oraz "Inni robią zakupy" = netto (X) + VAT (Y) - nie ma kolumny brutto
+            const cols = [['koszt', 17], ['koszt', 20]];
             const inni = (toCents(cell(ws, n, 24)) || 0) + (toCents(cell(ws, n, 25)) || 0);
             for (const [key, col] of cols.concat(inni ? [['koszt', 'inni']] : [])) {
                 const c = col === 'inni' ? inni : toCents(cell(ws, n, col));
                 if (!c) continue;
-                const k = Math.abs(c);
+                const k = c; // ze znakiem
                 if (seen.has(key + k)) continue; // ta sama kwota w Q i T tego samego wiersza - jedna pozycja
                 seen.add(key + k);
                 if (!data[key].has(k)) data[key].set(k, []);
@@ -152,9 +152,10 @@ function netString(cents) {
     return `${Math.floor(nc / 100)}.${String(nc % 100).padStart(2, '0')}`;
 }
 
-// Wartość fakturowa w groszach (nieujemna) -> tekst "1234.56"
+// Kwota w groszach (może być ujemna) -> tekst "1234.56" / "-1234.56"
 function centsString(c) {
-    return `${Math.floor(c / 100)}.${String(c % 100).padStart(2, '0')}`;
+    const a = Math.abs(c);
+    return `${c < 0 ? '-' : ''}${Math.floor(a / 100)}.${String(a % 100).padStart(2, '0')}`;
 }
 
 // Wartość komórki "Uwagi" (kol. Z) jako tekst do wyświetlenia
@@ -200,10 +201,8 @@ function makePlanItem(inv, e) {
     const ksef = String(inv.ksef).trim();
     const bOld = e.b === null ? '' : String(e.b).trim();
     const cOld = e.c === null ? '' : String(e.c).trim();
-    // pusta kolumna C: "nr faktury; nr KSEF" (jak przy nowych operacjach); w przeciwnym razie dopisujemy sam nr KSEF
-    const number = String(inv.number ?? '').trim();
-    const cNew = cOld === '' ? (number ? `${number}; ${ksef}` : ksef)
-        : (cOld.includes(ksef) ? cOld : `${cOld}; ${ksef}`);
+    // kolumna C: pusta -> sam nr KSEF; w przeciwnym razie dopisujemy "; nr KSEF"
+    const cNew = cOld === '' ? ksef : (cOld.includes(ksef) ? cOld : `${cOld}; ${ksef}`);
     const date = ksefDateParts(ksef);
     const fOld = displayDate(e.f);
     const fNew = date ? date.text : fOld;
@@ -236,7 +235,7 @@ function match(invoices, ledger, amountsFor) {
     for (const inv of invoices) {
         if (isAlready(inv)) {
             already.push({
-                date: inv.date, number: inv.number, ksef: inv.ksef, contractor: inv.contractor,
+                date: inv.date, ksef: inv.ksef, contractor: inv.contractor,
                 amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
             });
             continue;
@@ -248,8 +247,8 @@ function match(invoices, ledger, amountsFor) {
         if (inv.cents !== null && counts.get(inv.cents) > 1) {
             reason = 'Więcej niż 1 faktura od księgowej z tą samą kwotą brutto';
         } else if (inv.cents !== null && ledger[month]) {
-            const key = inv.cents < 0 ? 'przychod' : 'koszt';
-            found = ledger[month][key].get(Math.abs(inv.cents)) || [];
+            // wszystkie faktury to koszty; ujemne brutto (korekty) szukamy ze znakiem minus
+            found = ledger[month].koszt.get(inv.cents) || [];
             if (found.length === 0) { reason = 'Brak operacji finansowej dla tej faktury (brak matchy)'; noMatch = true; }
             else if (found.length > 1) reason = 'Więcej niż 1 pasująca operacja finansowa (więcej niż 1 match)';
         }
@@ -261,7 +260,7 @@ function match(invoices, ledger, amountsFor) {
             });
         } else {
             const rec = {
-                date: inv.date, number: inv.number, ksef: inv.ksef, contractor: inv.contractor,
+                date: inv.date, ksef: inv.ksef, contractor: inv.contractor,
                 amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
                 reason,
             };
@@ -270,7 +269,7 @@ function match(invoices, ledger, amountsFor) {
                 {
                     const date = ksefDateParts(ksef);
                     // kwoty netto i VAT wyłącznie z pliku XML faktury; bez poprawnego XML pozostają puste (null)
-                    const grossC = Math.abs(inv.cents);
+                    const grossC = inv.cents; // ze znakiem
                     const xml = amountsFor ? amountsFor(ksef) : { error: 'nie podano folderu z XML' };
                     let netC = null, vatC = null, verify;
                     if (xml.error) {
@@ -284,22 +283,22 @@ function match(invoices, ledger, amountsFor) {
                     }
                     rec.addId = additions.length;
                     additions.push({
-                        sheet: ledger[month].sheet, ksef, number: String(inv.number).trim(),
+                        sheet: ledger[month].sheet, ksef,
                         b: 'T',
-                        c: `${String(inv.number).trim()}; ${ksef}`,
+                        c: ksef,
                         e: firstWord(inv.contractor),
                         f: date ? { text: date.text, serial: date.serial } : null,
-                        amountCol: inv.cents > 0 ? 'P' : 'L', // koszt netto : przychód netto
+                        amountCol: 'P', // koszty netto
                         amount: netC === null ? null : centsString(netC),
                         gross: centsString(grossC),
                         vat: vatC === null ? null : centsString(vatC),
                         verify,
-                        grossCol: inv.cents > 0 ? 'Q' : 'M',
-                        vatCol: inv.cents > 0 ? 'R' : 'N',
-                        cost: inv.cents > 0,
+                        grossCol: 'Q',
+                        vatCol: 'R',
+                        cost: true,
                     });
-                    rec.canFuel = inv.cents > 0;
-                    rec.canInni = inv.cents > 0;
+                    rec.canFuel = true;
+                    rec.canInni = true;
                 }
             }
             unmatched.push(rec);
