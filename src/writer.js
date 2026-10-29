@@ -99,6 +99,23 @@ async function applyPlan(file, plan, backupDir, adds = []) {
         zip.file('xl/workbook.xml', wb);
     }
 
+    // calcChain.xml to lista komórek z formułami; po zastąpieniu formuł wartościami robi się nieaktualna
+    // i Excel zgłasza „naprawę pliku”. Usuwamy ją razem z wpisami w [Content_Types].xml i relacjach -
+    // Excel odbuduje ją sam przy otwarciu.
+    if (zip.file('xl/calcChain.xml')) {
+        zip.remove('xl/calcChain.xml');
+        const ct = zip.file('[Content_Types].xml');
+        if (ct) {
+            const x = (await ct.async('string')).replace(/<Override\b[^>]*calcChain[^>]*\/>/g, '');
+            zip.file('[Content_Types].xml', x);
+        }
+        const rels = zip.file('xl/_rels/workbook.xml.rels');
+        if (rels) {
+            const x = (await rels.async('string')).replace(/<Relationship\b[^>]*calcChain[^>]*\/>/g, '');
+            zip.file('xl/_rels/workbook.xml.rels', x);
+        }
+    }
+
     const out = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
 
     // kopia zapasowa: w podanym katalogu (domyślnie obok oryginału)
