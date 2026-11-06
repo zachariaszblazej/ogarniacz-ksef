@@ -450,6 +450,11 @@ td.editable {
     cursor: cell;
 }
 
+td.editable:hover {
+    background: rgba(224, 164, 88, .28);
+    box-shadow: inset 0 0 0 1px var(--accent);
+}
+
 input.cell-edit {
     font: inherit;
     color: var(--text);
