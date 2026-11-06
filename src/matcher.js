@@ -267,7 +267,7 @@ function match(invoices, ledger, amountsFor, dueFor) {
         } else {
             const due = dueFor ? dueFor(inv.ksef) : null; // termin płatności z XML: { text, serial } albo null
             const rec = {
-                date: inv.date, ksef: inv.ksef, contractor: inv.contractor,
+                date: inv.date, ksef: inv.ksef, contractor: firstWord(inv.contractor),
                 due: due ? due.text : '',
                 amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
                 reason,
