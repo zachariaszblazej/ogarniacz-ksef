@@ -3,8 +3,10 @@ const fs = require('fs');
 const path = require('path');
 const { run } = require('./matcher');
 const { applyPlan } = require('./writer');
+const { pdfPath } = require('./pdfInvoice');
 
 let last = null; // { ledgerPath, mtimeMs, plan }
+let pdfDir = null; // folder z PDF-ami z ostatniego dopasowania
 
 // Wszystkie kopie zapasowe w jednym miejscu: %APPDATA%\<nazwa aplikacji>\backups
 const backupsDir = () => path.join(app.getPath('userData'), 'backups');
@@ -42,10 +44,19 @@ ipcMain.handle('pick-dir', async (_e, title) => {
     return r.canceled ? null : r.filePaths[0];
 });
 
-ipcMain.handle('match', async (_e, invoicesPath, ledgerPath, xmlDir) => {
+// Renderer podaje tylko nr KSEF; ścieżka powstaje w main z zapamiętanego folderu.
+ipcMain.handle('open-pdf', async (_e, ksef) => {
+    const file = pdfPath(pdfDir, ksef);
+    if (!file) return { ok: false, error: 'Nie znaleziono pliku PDF dla tej faktury.' };
+    const err = await shell.openPath(file);
+    return err ? { ok: false, error: err } : { ok: true };
+});
+
+ipcMain.handle('match', async (_e, invoicesPath, ledgerPath, xmlDir, pdfFolder) => {
     try {
         const mtimeMs = fs.statSync(ledgerPath).mtimeMs;
-        const result = await run(invoicesPath, ledgerPath, xmlDir);
+        const result = await run(invoicesPath, ledgerPath, xmlDir, pdfFolder);
+        pdfDir = pdfFolder;
         last = { ledgerPath, mtimeMs, plan: result.plan, additions: result.additions, free: result.free };
         return { ok: true, result };
     } catch (e) {

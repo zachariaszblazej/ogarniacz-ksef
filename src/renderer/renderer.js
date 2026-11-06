@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id);
 api.version().then(v => { $('version').textContent = 'v' + v; });
-const paths = { inv: null, led: null, xml: null };
+const paths = { inv: null, xml: null, pdf: null, led: null };
 let fullPlan = [];      // plan z matchera (indeks = id zmatchowanej operacji)
 let matchOn = [];       // przełączniki operacji
 let cellOff = new Set(); // wyłączone komórki: "id:b" / "id:c" / "id:f"
@@ -23,12 +23,27 @@ function setPath(key, p) {
     paths[key] = p;
     $('f-' + key).textContent = p;
     $('p-' + key).classList.add('set');
-    $('run').disabled = !(paths.inv && paths.led && paths.xml);
+    $('run').disabled = !(paths.inv && paths.xml && paths.pdf && paths.led);
 }
 
 $('b-inv').onclick = async () => setPath('inv', await api.pickFile('Lista faktur od księgowej'));
 $('b-led').onclick = async () => setPath('led', await api.pickFile('Ewidencja operacji finansowych'));
 $('b-xml').onclick = async () => setPath('xml', await api.pickDir('Folder z fakturami XML (nr KSEF.xml)'));
+$('b-pdf').onclick = async () => setPath('pdf', await api.pickDir('Folder z fakturami PDF (nr KSEF.pdf)'));
+
+// Przycisk otwierający PDF faktury; nieaktywny, gdy pliku nie ma w folderze
+function pdfButton(r) {
+    const b = document.createElement('button');
+    b.className = 'ghost pdf-btn';
+    b.textContent = 'PDF';
+    b.disabled = !r.pdf;
+    b.title = r.pdf ? 'Otwórz fakturę PDF' : 'Brak pliku PDF w wybranym folderze';
+    b.onclick = async () => {
+        const res = await api.openPdf(r.ksef);
+        if (!res.ok) showMsg('Błąd: ' + res.error);
+    };
+    return b;
+}
 
 function fill(tbody, rows, keys, numKey) {
     tbody.replaceChildren();
@@ -44,6 +59,7 @@ function fill(tbody, rows, keys, numKey) {
         const tr = tbody.insertRow();
         for (const k of keys) {
             const td = tr.insertCell();
+            if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
             td.textContent = r[k] ?? '';
             if (k === numKey) td.className = 'num';
         }
@@ -60,7 +76,7 @@ $('run').onclick = async () => {
     $('msg').className = 'msg hidden';
     $('run').disabled = true;
     $('run').textContent = 'Liczę…';
-    const res = await api.match(paths.inv, paths.led, paths.xml);
+    const res = await api.match(paths.inv, paths.led, paths.xml, paths.pdf);
     $('run').textContent = 'Dopasuj';
     $('run').disabled = false;
     if (!res.ok) return showMsg('Błąd: ' + res.error);
@@ -78,7 +94,7 @@ $('run').onclick = async () => {
 
     renderMatched(matched);
     renderUnmatched(unmatched);
-    fill($('t-already'), already, ['date', 'ksef', 'contractor', 'amount'], 'amount');
+    fill($('t-already'), already, ['date', 'pdf', 'ksef', 'contractor', 'amount'], 'amount');
     $('c-already').textContent = 'Liczba rekordów: ' + already.length;
     $('s-already').textContent = already.length;
     $('c-bad').textContent = 'Liczba rekordów: ' + unmatched.length;
@@ -109,7 +125,7 @@ function renderMatched(matched) {
     tbody.replaceChildren();
     if (!matched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 8;
+        td.colSpan = 9;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -122,8 +138,9 @@ function renderMatched(matched) {
             tr.classList.toggle('off', !on);
             refreshFillState();
         }));
-        for (const k of ['lp', 'amount', 'date', 'ksef', 'contractor', 'firma', 'uwagi']) {
+        for (const k of ['pdf', 'lp', 'amount', 'date', 'ksef', 'contractor', 'firma', 'uwagi']) {
             const td = tr.insertCell();
+            if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';
         }
@@ -136,7 +153,7 @@ function renderUnmatched(unmatched) {
     tbody.replaceChildren();
     if (!unmatched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 8;
+        td.colSpan = 9;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -156,8 +173,9 @@ function renderUnmatched(unmatched) {
             first.title = 'Numer KSEF tej faktury występuje już w kolumnie „nr FV” ewidencji';
         }
         const kindBoxes = {};
-        for (const k of ['date', 'ksef', 'contractor', 'amount', 'fuel', 'inni', 'reason']) {
+        for (const k of ['pdf', 'date', 'ksef', 'contractor', 'amount', 'fuel', 'inni', 'reason']) {
             const td = tr.insertCell();
+            if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
             if (k === 'fuel' || k === 'inni') {
                 if (r.canFuel) {
                     const cb = document.createElement('input');
@@ -411,9 +429,9 @@ $('open-backups').onclick = () => api.openBackups();
 // ---- Wyczyść wszystko: powrót do stanu początkowego ----
 $('reset').onclick = async () => {
     await api.reset();
-    paths.inv = paths.led = paths.xml = null;
-    for (const k of ['inv', 'led', 'xml']) {
-        $('f-' + k).textContent = k === 'xml' ? 'Nie wybrano folderu' : 'Nie wybrano pliku';
+    paths.inv = paths.xml = paths.pdf = paths.led = null;
+    for (const k of ['inv', 'xml', 'pdf', 'led']) {
+        $('f-' + k).textContent = k === 'xml' || k === 'pdf' ? 'Nie wybrano folderu' : 'Nie wybrano pliku';
         $('p-' + k).classList.remove('set');
     }
     $('run').disabled = true;

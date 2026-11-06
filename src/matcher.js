@@ -1,5 +1,6 @@
 const XLSX = require('xlsx');
 const { readAmounts } = require('./xmlInvoice');
+const { pdfPath } = require('./pdfInvoice');
 
 const MONTHS = ['styczen', 'luty', 'marzec', 'kwiecien', 'maj', 'czerwiec',
     'lipiec', 'sierpien', 'wrzesien', 'pazdziernik', 'listopad', 'grudzien'];
@@ -307,11 +308,15 @@ function match(invoices, ledger, amountsFor) {
     return { matched, unmatched, already, plan, additions, free };
 }
 
-async function run(invoicesPath, ledgerPath, xmlDir) {
+async function run(invoicesPath, ledgerPath, xmlDir, pdfDir) {
     const invoices = await readInvoices(invoicesPath);
     const ledger = await readLedger(ledgerPath);
     const months = Object.keys(ledger).map(Number).sort((a, b) => a - b);
-    return { ...match(invoices, ledger, ksef => readAmounts(xmlDir, ksef)), total: invoices.length, months };
+    const result = match(invoices, ledger, ksef => readAmounts(xmlDir, ksef));
+    for (const list of [result.matched, result.unmatched, result.already]) {
+        for (const r of list) r.pdf = pdfPath(pdfDir, r.ksef) !== null;
+    }
+    return { ...result, total: invoices.length, months };
 }
 
 module.exports = { run, ksefMonth, toCents, match, netString };
