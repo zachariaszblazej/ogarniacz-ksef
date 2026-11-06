@@ -11,6 +11,7 @@ let additions = [];       // z matchera (indeks = id)
 let freeRows = {};        // arkusz -> [{ row, lp }] wolne wiersze
 let addOn = [];           // przełączniki: czy dopisać fakturę
 let fuelOn = [];          // rodzaj kosztu per faktura: '' (zwykły) | 'fuel' (paliwo, S-U) | 'inni' (X, Y) - wzajemnie wykluczające się
+let eEdit = [];           // ręcznie poprawiona nazwa firmy (kol. E) per nowa operacja; '' = propozycja programu
 const kindOf = (a, id) => (a.cost ? fuelOn[id] || '' : '');
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
 const ADD_CELLS = ['b', 'c', 'e', 'f', 'g', 'net', 'gross', 'vat'];
@@ -89,6 +90,7 @@ $('run').onclick = async () => {
     freeRows = free;
     addOn = adds.map(() => true);
     fuelOn = adds.map(() => '');
+    eEdit = adds.map(() => '');
     addCellOff = new Set();
     if (!months.length) showMsg('W ewidencji nie znaleziono arkuszy z nazwami miesięcy.', true);
 
@@ -147,6 +149,48 @@ function renderMatched(matched) {
     });
 }
 
+// Komórka edytowalna jak w Excelu: dwuklik otwiera edycję, Enter lub kliknięcie poza komórką zapisuje, Esc anuluje
+function makeEditable(td, r) {
+    const show = () => {
+        td.textContent = eEdit[r.addId] || r.contractor;
+        td.classList.toggle('edited', Boolean(eEdit[r.addId]));
+    };
+    td.classList.add('editable');
+    td.title = 'Kliknij dwukrotnie, aby edytować nazwę firmy (kolumna E)';
+    show();
+    td.ondblclick = () => {
+        if (td.querySelector('input')) return;
+        const cs = getComputedStyle(td);
+        const startW = td.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'cell-edit';
+        input.value = eEdit[r.addId] || r.contractor;
+        input.style.minWidth = startW + 'px';
+        const fit = () => { input.size = Math.max(10, input.value.length + 1); };
+        fit();
+        let done = false;
+        const finish = save => {
+            if (done) return;
+            done = true;
+            if (save) {
+                const v = input.value.trim();
+                eEdit[r.addId] = v && v !== r.contractor ? v : '';
+            }
+            show();
+        };
+        input.oninput = fit;
+        input.onblur = () => finish(true);
+        input.onkeydown = e => {
+            if (e.key === 'Enter') finish(true);
+            else if (e.key === 'Escape') finish(false);
+        };
+        td.replaceChildren(input);
+        input.focus();
+        input.select();
+    };
+}
+
 // ---- Lista niezmatchowanych: przełącznik tylko dla faktur bez matchu (do dopisania) ----
 function renderUnmatched(unmatched) {
     const tbody = $('t-bad');
@@ -195,6 +239,7 @@ function renderUnmatched(unmatched) {
                 }
                 continue;
             }
+            if (k === 'contractor' && r.addId !== undefined) { makeEditable(td, r); continue; }
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';
         }
@@ -310,7 +355,7 @@ function renderNewOps() {
         const isFuel = isFuelAdd(a, id);
         const comma = s => (s === null ? null : s.replace('.', ','));
         const value = {
-            b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '', g: a.g ? a.g.text : '',
+            b: a.b, c: a.c, e: eEdit[id] || a.e, f: a.f ? a.f.text : '', g: a.g ? a.g.text : '',
             net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
         };
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
@@ -409,7 +454,7 @@ document.addEventListener('keydown', e => {
 $('m-ok').onclick = async () => {
     const selection = {
         changes: effectivePlan().map(e => ({ id: e.id, cells: e.cells })),
-        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: kindOf(e.a, e.id) === 'fuel', kind: kindOf(e.a, e.id) })),
+        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: kindOf(e.a, e.id) === 'fuel', kind: kindOf(e.a, e.id), e: eEdit[e.id] || '' })),
     };
     $('m-ok').disabled = true;
     $('m-ok').textContent = 'Zapisuję…';

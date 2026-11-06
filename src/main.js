@@ -117,6 +117,8 @@ ipcMain.handle('apply', async (_e, selection) => {
             // paliwo: te same kwoty (netto, brutto, VAT) w kolumnach S, T, U;
             // inni: tylko netto i VAT w kolumnach X, Y (nie ma kolumny brutto)
             const entry = { id: s.id, ...item, cells };
+            // ręcznie poprawiona nazwa firmy (kol. E) - tylko tekst, przycięty do rozsądnej długości
+            if (typeof s.e === 'string' && s.e.trim()) entry.e = s.e.trim().slice(0, 255);
             if (s.kind === 'fuel' && item.cost) Object.assign(entry, { amountCol: 'S', grossCol: 'T', vatCol: 'U' });
             if (inni) Object.assign(entry, { amountCol: 'X', grossCol: null, vatCol: 'Y' });
             if (cells.length) selectedAdds.push(entry);

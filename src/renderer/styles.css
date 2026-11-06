@@ -441,6 +441,24 @@ tr.off td:not(:first-child) {
     text-decoration: line-through;
 }
 
+td.editable {
+    cursor: cell;
+}
+
+td.editable.edited {
+    color: var(--accent);
+}
+
+input.cell-edit {
+    font: inherit;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    padding: 1px 4px;
+    outline: none;
+}
+
 td.toggle {
     cursor: pointer;
     user-select: none;
