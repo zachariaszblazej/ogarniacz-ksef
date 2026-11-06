@@ -64,7 +64,7 @@ ipcMain.handle('match', async (_e, invoicesPath, ledgerPath, xmlDir, pdfFolder) 
     }
 });
 
-const ADD_CELLS = ['b', 'c', 'e', 'f', 'net', 'gross', 'vat'];
+const ADD_CELLS = ['b', 'c', 'e', 'f', 'g', 'net', 'gross', 'vat'];
 
 // Przypisuje wybrane nowe operacje do kolejnych wolnych wierszy (osobno dla każdego arkusza).
 // To samo robi renderer na potrzeby podglądu - tu jest wersja rozstrzygająca.
@@ -112,6 +112,7 @@ ipcMain.handle('apply', async (_e, selection) => {
             const fuel = s.fuel === true && item.cost;
             const inni = s.kind === 'inni' && item.cost;
             const cells = ADD_CELLS.filter(c => s.cells.includes(c) && !(inni && c === 'gross') &&
+                !(c === 'g' && !item.g) &&
                 !(c === 'net' && item.amount === null) && !(c === 'vat' && item.vat === null));
             // paliwo: te same kwoty (netto, brutto, VAT) w kolumnach S, T, U;
             // inni: tylko netto i VAT w kolumnach X, Y (nie ma kolumny brutto)

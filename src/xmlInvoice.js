@@ -50,4 +50,22 @@ function readAmounts(dir, ksef) {
     }
 }
 
-module.exports = { readAmounts, decimalToCents };
+// Fa/Platnosc/TerminPlatnosci/Termin (RRRR-MM-DD) - pierwszy termin; null, gdy brak pliku, znacznika lub daty.
+function readDueDate(dir, ksef) {
+    try {
+        const id = String(ksef ?? '').trim();
+        if (!dir || !/^[A-Za-z0-9-]+$/.test(id)) return null;
+        const file = path.join(dir, id + '.xml');
+        if (!fs.existsSync(file)) return null;
+        const xml = fs.readFileSync(file, 'utf8');
+        const fa = /<(?:[\w.-]+:)?Fa(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?Fa>/.exec(xml);
+        const pay = fa && /<(?:[\w.-]+:)?Platnosc(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?Platnosc>/.exec(fa[1]);
+        const tp = pay && /<(?:[\w.-]+:)?TerminPlatnosci(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?TerminPlatnosci>/.exec(pay[1]);
+        const t = tp && /<(?:[\w.-]+:)?Termin>\s*(\d{4}-\d{2}-\d{2})\s*<\/(?:[\w.-]+:)?Termin>/.exec(tp[1]);
+        return t ? t[1] : null;
+    } catch {
+        return null;
+    }
+}
+
+module.exports = { readAmounts, readDueDate, decimalToCents };

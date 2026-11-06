@@ -13,7 +13,7 @@ let addOn = [];           // przełączniki: czy dopisać fakturę
 let fuelOn = [];          // rodzaj kosztu per faktura: '' (zwykły) | 'fuel' (paliwo, S-U) | 'inni' (X, Y) - wzajemnie wykluczające się
 const kindOf = (a, id) => (a.cost ? fuelOn[id] || '' : '');
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
-const ADD_CELLS = ['b', 'c', 'e', 'f', 'net', 'gross', 'vat'];
+const ADD_CELLS = ['b', 'c', 'e', 'f', 'g', 'net', 'gross', 'vat'];
 // które komórki kwot dotyczą danej faktury: zwykłej (netto/brutto/VAT) albo paliwowej (tylko T)
 const AMOUNT_KEYS = ['net', 'gross', 'vat'];
 const isFuelAdd = (a, id) => kindOf(a, id) === 'fuel';
@@ -153,7 +153,7 @@ function renderUnmatched(unmatched) {
     tbody.replaceChildren();
     if (!unmatched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 9;
+        td.colSpan = 10;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -173,7 +173,7 @@ function renderUnmatched(unmatched) {
             first.title = 'Numer KSEF tej faktury występuje już w kolumnie „nr FV” ewidencji';
         }
         const kindBoxes = {};
-        for (const k of ['pdf', 'date', 'ksef', 'contractor', 'amount', 'fuel', 'inni', 'reason']) {
+        for (const k of ['pdf', 'date', 'ksef', 'contractor', 'due', 'amount', 'fuel', 'inni', 'reason']) {
             const td = tr.insertCell();
             if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
             if (k === 'fuel' || k === 'inni') {
@@ -220,7 +220,7 @@ function effectiveAdds() {
     additions.forEach((a, id) => {
         if (!addOn[id]) return;
         const inni = kindOf(a, id) === 'inni';
-        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && !(inni && c === 'gross') &&
+        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && (c !== 'g' || a.g) && !(inni && c === 'gross') &&
             !(c === 'net' && a.amount === null) && !(c === 'vat' && a.vat === null) &&
             !addCellOff.has(id + ':' + c));
         if (!cells.length) return;
@@ -310,14 +310,14 @@ function renderNewOps() {
         const isFuel = isFuelAdd(a, id);
         const comma = s => (s === null ? null : s.replace('.', ','));
         const value = {
-            b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '',
+            b: a.b, c: a.c, e: a.e, f: a.f ? a.f.text : '', g: a.g ? a.g.text : '',
             net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
         };
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
-        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', P: 'net', S: 'net', X: 'net', Q: 'gross', T: 'gross', R: 'vat', U: 'vat', Y: 'vat' };
+        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', g: 'g', P: 'net', S: 'net', X: 'net', Q: 'gross', T: 'gross', R: 'vat', U: 'vat', Y: 'vat' };
         const kind = kindOf(a, id);
         const activeCols = kind === 'fuel' ? ['S', 'T', 'U'] : kind === 'inni' ? ['X', 'Y'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['e', 'verify', 'b', 'c', 'f', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
+        for (const col of ['e', 'verify', 'b', 'c', 'f', 'g', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
             if (col === 'verify') {
                 const vt = tr.insertCell();
                 if (a.verify.ok) {
@@ -346,7 +346,12 @@ function renderNewOps() {
                 }
             }
             if (key === 'f' && !a.f) {
-                td.textContent = '— (brak daty w nr KSEF)';
+                td.textContent = '— (brak daty na liście)';
+                td.className = 'same';
+                continue;
+            }
+            if (key === 'g' && !a.g) {
+                td.textContent = '— (brak terminu w XML)';
                 td.className = 'same';
                 continue;
             }
