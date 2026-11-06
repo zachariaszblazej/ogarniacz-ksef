@@ -79,6 +79,7 @@ async function applyPlan(file, plan, backupDir, adds = []) {
         for (const a of sheetAdds) {
             if (a.cells.includes('b')) xml = setCell(xml, `B${a.row}`, 'str', a.b);
             if (a.cells.includes('c')) xml = setCell(xml, `C${a.row}`, 'str', a.c);
+            if (a.cells.includes('d') && a.d) xml = setCell(xml, `D${a.row}`, 'str', a.d);
             if (a.cells.includes('e')) xml = setCell(xml, `E${a.row}`, 'str', a.e);
             if (a.cells.includes('f') && a.f) xml = setCell(xml, `F${a.row}`, 'num', a.f.serial);
             if (a.cells.includes('g') && a.g) xml = setCell(xml, `G${a.row}`, 'num', a.g.serial);
@@ -87,6 +88,7 @@ async function applyPlan(file, plan, backupDir, adds = []) {
             if (a.cells.includes('net')) xml = setCell(xml, `${a.amountCol}${a.row}`, 'num', a.amount);
             if (a.cells.includes('gross') && a.grossCol) xml = setCell(xml, `${a.grossCol}${a.row}`, 'num', a.gross);
             if (a.cells.includes('vat')) xml = setCell(xml, `${a.vatCol}${a.row}`, 'num', a.vat);
+            if (a.cells.includes('z') && a.z) xml = setCell(xml, `Z${a.row}`, 'str', a.z);
             addedRecords++;
         }
         zip.file(p, xml);

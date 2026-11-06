@@ -121,7 +121,7 @@ function isKsefDone(b, c) {
 // Kolumny wejściowe (ręcznie wypełniane) - wolny wiersz musi mieć je wszystkie puste
 const INPUT_COLS = Array.from({ length: 25 }, (_, i) => i + 2); // B..Z
 // Kolumny, do których zapisujemy - ich komórki muszą istnieć (być sformatowane) w wierszu
-const WRITE_COLS = [2, 3, 5, 6, 7, 12, 16];
+const WRITE_COLS = [2, 3, 4, 5, 6, 7, 12, 16, 26];
 
 function hasCell(ws, row, col) {
     return Boolean(ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })]);

@@ -12,9 +12,11 @@ let freeRows = {};        // arkusz -> [{ row, lp }] wolne wiersze
 let addOn = [];           // przełączniki: czy dopisać fakturę
 let fuelOn = [];          // rodzaj kosztu per faktura: '' (zwykły) | 'fuel' (paliwo, S-U) | 'inni' (X, Y) - wzajemnie wykluczające się
 let eEdit = [];           // ręcznie poprawiona nazwa firmy (kol. E) per nowa operacja; '' = propozycja programu
+let zlEdit = [];          // tekst z kolumny "ZL" -> kol. D nowego wiersza
+let noteEdit = [];        // tekst z kolumny "Uwagi" -> kol. Z nowego wiersza
 const kindOf = (a, id) => (a.cost ? fuelOn[id] || '' : '');
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
-const ADD_CELLS = ['b', 'c', 'e', 'f', 'g', 'net', 'gross', 'vat'];
+const ADD_CELLS = ['b', 'c', 'd', 'e', 'f', 'g', 'net', 'gross', 'vat', 'z'];
 // które komórki kwot dotyczą danej faktury: zwykłej (netto/brutto/VAT) albo paliwowej (tylko T)
 const AMOUNT_KEYS = ['net', 'gross', 'vat'];
 const isFuelAdd = (a, id) => kindOf(a, id) === 'fuel';
@@ -91,6 +93,8 @@ $('run').onclick = async () => {
     addOn = adds.map(() => true);
     fuelOn = adds.map(() => '');
     eEdit = adds.map(() => '');
+    zlEdit = adds.map(() => '');
+    noteEdit = adds.map(() => '');
     addCellOff = new Set();
     if (!months.length) showMsg('W ewidencji nie znaleziono arkuszy z nazwami miesięcy.', true);
 
@@ -149,13 +153,14 @@ function renderMatched(matched) {
     });
 }
 
-// Komórka edytowalna jak w Excelu: dwuklik otwiera edycję, Enter lub kliknięcie poza komórką zapisuje, Esc anuluje
-function makeEditable(td, r) {
+// Komórka edytowalna jak w Excelu: dwuklik otwiera edycję, Enter lub kliknięcie poza komórką zapisuje, Esc anuluje.
+// store[id] trzyma ręczną wartość ('' = brak, wtedy pokazujemy base).
+function makeEditable(td, store, id, base, title) {
     const show = () => {
-        td.textContent = eEdit[r.addId] || r.contractor;
+        td.textContent = store[id] || base;
     };
     td.classList.add('editable');
-    td.title = 'Kliknij dwukrotnie, aby edytować nazwę firmy (kolumna E)';
+    td.title = title;
     show();
     td.ondblclick = () => {
         if (td.querySelector('input')) return;
@@ -164,7 +169,7 @@ function makeEditable(td, r) {
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'cell-edit';
-        input.value = eEdit[r.addId] || r.contractor;
+        input.value = store[id] || base;
         input.style.minWidth = startW + 'px';
         const fit = () => { input.size = Math.max(10, input.value.length + 1); };
         fit();
@@ -174,7 +179,7 @@ function makeEditable(td, r) {
             done = true;
             if (save) {
                 const v = input.value.trim();
-                eEdit[r.addId] = v && v !== r.contractor ? v : '';
+                store[id] = v && v !== base ? v : '';
             }
             show();
         };
@@ -196,7 +201,7 @@ function renderUnmatched(unmatched) {
     tbody.replaceChildren();
     if (!unmatched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 10;
+        td.colSpan = 12;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -216,7 +221,7 @@ function renderUnmatched(unmatched) {
             first.title = 'Numer KSEF tej faktury występuje już w kolumnie „nr FV” ewidencji';
         }
         const kindBoxes = {};
-        for (const k of ['pdf', 'date', 'ksef', 'contractor', 'due', 'amount', 'fuel', 'inni', 'reason']) {
+        for (const k of ['pdf', 'date', 'zl', 'ksef', 'contractor', 'due', 'amount', 'fuel', 'inni', 'uwagi', 'reason']) {
             const td = tr.insertCell();
             if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
             if (k === 'fuel' || k === 'inni') {
@@ -238,7 +243,18 @@ function renderUnmatched(unmatched) {
                 }
                 continue;
             }
-            if (k === 'contractor' && r.addId !== undefined) { makeEditable(td, r); continue; }
+            if (k === 'contractor' && r.addId !== undefined) {
+                makeEditable(td, eEdit, r.addId, r.contractor, 'Kliknij dwukrotnie, aby edytować nazwę firmy (kolumna E)');
+                continue;
+            }
+            if (k === 'zl' || k === 'uwagi') {
+                if (r.addId !== undefined) {
+                    const isZl = k === 'zl';
+                    makeEditable(td, isZl ? zlEdit : noteEdit, r.addId, '',
+                        isZl ? 'Kliknij dwukrotnie, aby wpisać ZL (kolumna D)' : 'Kliknij dwukrotnie, aby wpisać uwagi (kolumna Z)');
+                }
+                continue;
+            }
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';
         }
@@ -264,7 +280,8 @@ function effectiveAdds() {
     additions.forEach((a, id) => {
         if (!addOn[id]) return;
         const inni = kindOf(a, id) === 'inni';
-        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && (c !== 'g' || a.g) && !(inni && c === 'gross') &&
+        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && (c !== 'g' || a.g) &&
+            (c !== 'd' || zlEdit[id]) && (c !== 'z' || noteEdit[id]) && !(inni && c === 'gross') &&
             !(c === 'net' && a.amount === null) && !(c === 'vat' && a.vat === null) &&
             !addCellOff.has(id + ':' + c));
         if (!cells.length) return;
@@ -354,14 +371,14 @@ function renderNewOps() {
         const isFuel = isFuelAdd(a, id);
         const comma = s => (s === null ? null : s.replace('.', ','));
         const value = {
-            b: a.b, c: a.c, e: eEdit[id] || a.e, f: a.f ? a.f.text : '', g: a.g ? a.g.text : '',
+            b: a.b, c: a.c, d: zlEdit[id] || '', e: eEdit[id] || a.e, f: a.f ? a.f.text : '', g: a.g ? a.g.text : '', z: noteEdit[id] || '',
             net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
         };
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
-        const colKey = { b: 'b', c: 'c', e: 'e', f: 'f', g: 'g', P: 'net', S: 'net', X: 'net', Q: 'gross', T: 'gross', R: 'vat', U: 'vat', Y: 'vat' };
+        const colKey = { b: 'b', c: 'c', d: 'd', e: 'e', f: 'f', g: 'g', z: 'z', P: 'net', S: 'net', X: 'net', Q: 'gross', T: 'gross', R: 'vat', U: 'vat', Y: 'vat' };
         const kind = kindOf(a, id);
         const activeCols = kind === 'fuel' ? ['S', 'T', 'U'] : kind === 'inni' ? ['X', 'Y'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['e', 'verify', 'b', 'c', 'f', 'g', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y']) {
+        for (const col of ['e', 'verify', 'b', 'c', 'd', 'f', 'g', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y', 'z']) {
             if (col === 'verify') {
                 const vt = tr.insertCell();
                 if (a.verify.ok) {
@@ -396,6 +413,11 @@ function renderNewOps() {
             }
             if (key === 'g' && !a.g) {
                 td.textContent = '— (brak terminu w XML)';
+                td.className = 'same';
+                continue;
+            }
+            if ((key === 'd' || key === 'z') && !value[key]) {
+                td.textContent = '—';
                 td.className = 'same';
                 continue;
             }
@@ -453,7 +475,7 @@ document.addEventListener('keydown', e => {
 $('m-ok').onclick = async () => {
     const selection = {
         changes: effectivePlan().map(e => ({ id: e.id, cells: e.cells })),
-        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: kindOf(e.a, e.id) === 'fuel', kind: kindOf(e.a, e.id), e: eEdit[e.id] || '' })),
+        adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: kindOf(e.a, e.id) === 'fuel', kind: kindOf(e.a, e.id), e: eEdit[e.id] || '', zl: zlEdit[e.id] || '', uwagi: noteEdit[e.id] || '' })),
     };
     $('m-ok').disabled = true;
     $('m-ok').textContent = 'Zapisuję…';
