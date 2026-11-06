@@ -153,7 +153,6 @@ function renderMatched(matched) {
 function makeEditable(td, r) {
     const show = () => {
         td.textContent = eEdit[r.addId] || r.contractor;
-        td.classList.toggle('edited', Boolean(eEdit[r.addId]));
     };
     td.classList.add('editable');
     td.title = 'Kliknij dwukrotnie, aby edytować nazwę firmy (kolumna E)';

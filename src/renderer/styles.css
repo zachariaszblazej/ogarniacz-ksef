@@ -445,10 +445,6 @@ td.editable {
     cursor: cell;
 }
 
-td.editable.edited {
-    color: var(--accent);
-}
-
 input.cell-edit {
     font: inherit;
     color: var(--text);
