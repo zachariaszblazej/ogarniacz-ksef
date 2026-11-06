@@ -99,7 +99,7 @@ async function readLedger(path) {
                 seen.add(key + k);
                 if (!data[key].has(k)) data[key].set(k, []);
                 data[key].get(k).push({
-                    lp, firma, uwagi, sheet: sheetName, row: n,
+                    lp, firma, uwagi, sheet: sheetName, row: n, gross: k, // brutto z ewidencji (Q, T albo X+Y), w groszach
                     b: cell(ws, n, 2), c: cell(ws, n, 3), f: cell(ws, n, 6),
                 });
             }
@@ -261,7 +261,7 @@ function match(invoices, ledger, amountsFor, dueFor) {
         if (found.length === 1) {
             plan.push(makePlanItem(inv, found[0]));
             matched.push({
-                lp: found[0].lp, amount: (inv.cents / 100).toFixed(2), date: inv.date,
+                lp: found[0].lp, amount: (found[0].gross / 100).toFixed(2), date: inv.date,
                 ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma, uwagi: found[0].uwagi,
             });
         } else {
