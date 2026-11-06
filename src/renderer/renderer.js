@@ -144,7 +144,7 @@ function renderMatched(matched) {
             tr.classList.toggle('off', !on);
             refreshFillState();
         }));
-        for (const k of ['pdf', 'lp', 'amount', 'date', 'ksef', 'contractor', 'firma', 'uwagi']) {
+        for (const k of ['pdf', 'date', 'lp', 'ksef', 'contractor', 'firma', 'amount', 'uwagi']) {
             const td = tr.insertCell();
             if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
             td.textContent = r[k] ?? '';

@@ -251,12 +251,12 @@ function match(invoices, ledger, amountsFor, dueFor) {
         let noMatch = false;
         const month = inv.dateParts ? inv.dateParts.month : null;
         if (inv.cents !== null && counts.get(inv.cents) > 1) {
-            reason = 'Więcej niż 1 faktura od księgowej z tą samą kwotą brutto';
+            reason = 'Wiele faktur na tę samą kwotę';
         } else if (inv.cents !== null && ledger[month]) {
             // wszystkie faktury to koszty; ujemne brutto (korekty) szukamy ze znakiem minus
             found = ledger[month].koszt.get(inv.cents) || [];
-            if (found.length === 0) { reason = 'Brak operacji finansowej dla tej faktury (brak matchy)'; noMatch = true; }
-            else if (found.length > 1) reason = 'Więcej niż 1 pasująca operacja finansowa (więcej niż 1 match)';
+            if (found.length === 0) { reason = 'Brak dopasowania'; noMatch = true; }
+            else if (found.length > 1) reason = 'Wiele dopasowań';
         }
         if (found.length === 1) {
             plan.push(makePlanItem(inv, found[0]));
