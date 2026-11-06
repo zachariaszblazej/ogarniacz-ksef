@@ -100,7 +100,7 @@ $('run').onclick = async () => {
 
     renderMatched(matched);
     renderUnmatched(unmatched);
-    fill($('t-already'), already, ['date', 'pdf', 'ksef', 'contractor', 'amount'], 'amount');
+    fill($('t-already'), already, ['pdf', 'date', 'ksef', 'contractor', 'amount'], 'amount');
     $('c-already').textContent = 'Liczba rekordów: ' + already.length;
     $('s-already').textContent = already.length;
     $('c-bad').textContent = 'Liczba rekordów: ' + unmatched.length;
