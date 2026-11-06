@@ -318,7 +318,7 @@ async function run(invoicesPath, ledgerPath, xmlDir, pdfDir) {
     const ledger = await readLedger(ledgerPath);
     const months = Object.keys(ledger).map(Number).sort((a, b) => a - b);
     const result = match(invoices, ledger, ksef => readAmounts(xmlDir, ksef));
-    for (const list of [result.matched, result.unmatched, result.already]) {
+    for (const list of [result.matched, result.unmatched, result.already, result.plan, result.additions]) {
         for (const r of list) r.pdf = pdfPath(pdfDir, r.ksef) !== null;
     }
     return { ...result, total: invoices.length, months };

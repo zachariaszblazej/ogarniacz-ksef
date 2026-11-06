@@ -306,6 +306,7 @@ function renderNewOps() {
         } else {
             lpCell.textContent = slot ? slot.lp : '—';
         }
+        tr.insertCell().appendChild(pdfButton(a));
         const isFuel = isFuelAdd(a, id);
         const comma = s => (s === null ? null : s.replace('.', ','));
         const value = {
@@ -380,6 +381,7 @@ $('fill').onclick = () => {
         const tr = body.insertRow();
         tr.insertCell().textContent = p.sheet;
         tr.insertCell().textContent = p.lp;
+        tr.insertCell().appendChild(pdfButton(p));
         tr.insertCell().textContent = p.firma ?? '';
         diffCell(tr, id, 'b', p.b);
         diffCell(tr, id, 'c', p.c);
