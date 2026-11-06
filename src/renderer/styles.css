@@ -250,6 +250,10 @@ td {
     border-bottom: 1px solid #2f3137;
 }
 
+/* Te same szerokości w tabelach zmatchowanych i niezmatchowanych */
+th.col-add { width: 1%; }
+th.col-ksef { width: 42ch; min-width: 42ch; }
+
 th {
     position: sticky;
     top: 0;
