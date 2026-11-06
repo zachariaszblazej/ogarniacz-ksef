@@ -25,13 +25,6 @@ function toCents(v) {
     return Number.isNaN(n) ? null : Math.round(n * 100);
 }
 
-function ksefMonth(nr) {
-    const m = /-(\d{4})(\d{2})(\d{2})-/.exec(String(nr ?? ''));
-    if (!m) return null;
-    const mo = parseInt(m[2], 10);
-    return mo >= 1 && mo <= 12 ? mo : null;
-}
-
 function fmtDate(v) {
     if (v instanceof Date) {
         const p = x => String(x).padStart(2, '0');
@@ -63,7 +56,7 @@ async function readInvoices(path) {
         const cells = [1, 2, 3, 4, 5].map(c => cell(ws, n, c));
         if (cells.every(c => c === null || c === '')) continue;
         out.push({
-            date: fmtDate(cells[0]), number: cells[1] ?? '', ksef: cells[2] ?? '',
+            date: fmtDate(cells[0]), dateParts: dateParts(cells[0]), number: cells[1] ?? '', ksef: cells[2] ?? '',
             contractor: cells[3] ?? '', amount: cells[4] ?? '', cents: toCents(cells[4]),
         });
     }
@@ -179,14 +172,26 @@ function firstWord(text) {
     return out;
 }
 
-function ksefDateParts(nr) {
-    const m = /-(\d{4})(\d{2})(\d{2})-/.exec(String(nr ?? ''));
-    if (!m) return null;
-    const [y, mo, d] = [+m[1], +m[2], +m[3]];
+// Data (rok, miesiąc, dzień) -> { text: DD.MM.RRRR, month, serial: numer dnia Excela } albo null, gdy to nie jest poprawna data
+function ymdParts(y, mo, d) {
     const dt = new Date(Date.UTC(y, mo - 1, d));
     if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== mo - 1 || dt.getUTCDate() !== d) return null;
     const p = x => String(x).padStart(2, '0');
-    return { text: `${p(d)}.${p(mo)}.${y}`, serial: Math.round(dt.getTime() / 86400000) + 25569 };
+    return { text: `${p(d)}.${p(mo)}.${y}`, month: mo, serial: Math.round(dt.getTime() / 86400000) + 25569 };
+}
+
+// Data wystawienia z kolumny A listy księgowej: Date, numer seryjny Excela albo tekst RRRR-MM-DD / DD.MM.RRRR
+function dateParts(v) {
+    if (v instanceof Date) return ymdParts(v.getFullYear(), v.getMonth() + 1, v.getDate());
+    if (typeof v === 'number') {
+        const c = XLSX.SSF.parse_date_code(v);
+        return c ? ymdParts(c.y, c.m, c.d) : null;
+    }
+    const s = String(v ?? '').trim();
+    let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (m) return ymdParts(+m[1], +m[2], +m[3]);
+    m = /^(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})/.exec(s);
+    return m ? ymdParts(+m[3], +m[2], +m[1]) : null;
 }
 
 function displayDate(v) {
@@ -204,7 +209,7 @@ function makePlanItem(inv, e) {
     const cOld = e.c === null ? '' : String(e.c).trim();
     // kolumna C: pusta -> sam nr KSEF; w przeciwnym razie dopisujemy "; nr KSEF"
     const cNew = cOld === '' ? ksef : (cOld.includes(ksef) ? cOld : `${cOld}; ${ksef}`);
-    const date = ksefDateParts(ksef);
+    const date = inv.dateParts;
     const fOld = displayDate(e.f);
     const fNew = date ? date.text : fOld;
     const item = {
@@ -244,7 +249,7 @@ function match(invoices, ledger, amountsFor) {
         let found = [];
         let reason = 'Inne';
         let noMatch = false;
-        const month = ksefMonth(inv.ksef);
+        const month = inv.dateParts ? inv.dateParts.month : null;
         if (inv.cents !== null && counts.get(inv.cents) > 1) {
             reason = 'Więcej niż 1 faktura od księgowej z tą samą kwotą brutto';
         } else if (inv.cents !== null && ledger[month]) {
@@ -268,7 +273,7 @@ function match(invoices, ledger, amountsFor) {
             if (noMatch) {
                 const ksef = String(inv.ksef).trim();
                 {
-                    const date = ksefDateParts(ksef);
+                    const date = inv.dateParts;
                     // kwoty netto i VAT wyłącznie z pliku XML faktury; bez poprawnego XML pozostają puste (null)
                     const grossC = inv.cents; // ze znakiem
                     const xml = amountsFor ? amountsFor(ksef) : { error: 'nie podano folderu z XML' };
@@ -319,4 +324,4 @@ async function run(invoicesPath, ledgerPath, xmlDir, pdfDir) {
     return { ...result, total: invoices.length, months };
 }
 
-module.exports = { run, ksefMonth, toCents, match, netString };
+module.exports = { run, toCents, match, netString };
