@@ -16,7 +16,7 @@ let zlEdit = [];          // tekst z kolumny "ZL" -> kol. D nowego wiersza
 let noteEdit = [];        // tekst z kolumny "Uwagi" -> kol. Z nowego wiersza
 const kindOf = (a, id) => (a.cost ? fuelOn[id] || '' : '');
 let addCellOff = new Set(); // wyłączone komórki nowych operacji: "id:b" / "id:c" / "id:e" / "id:f" / "id:amount"
-const ADD_CELLS = ['b', 'c', 'd', 'e', 'f', 'g', 'net', 'gross', 'vat', 'z'];
+const ADD_CELLS = ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'net', 'gross', 'vat', 'z'];
 // które komórki kwot dotyczą danej faktury: zwykłej (netto/brutto/VAT) albo paliwowej (tylko T)
 const AMOUNT_KEYS = ['net', 'gross', 'vat'];
 const isFuelAdd = (a, id) => kindOf(a, id) === 'fuel';
@@ -201,7 +201,7 @@ function renderUnmatched(unmatched) {
     tbody.replaceChildren();
     if (!unmatched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 12;
+        td.colSpan = 13;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -221,7 +221,7 @@ function renderUnmatched(unmatched) {
             first.title = 'Numer KSEF tej faktury występuje już w kolumnie „nr FV” ewidencji';
         }
         const kindBoxes = {};
-        for (const k of ['pdf', 'date', 'zl', 'ksef', 'contractor', 'due', 'amount', 'fuel', 'inni', 'uwagi', 'reason']) {
+        for (const k of ['pdf', 'date', 'zl', 'ksef', 'contractor', 'due', 'paid', 'amount', 'fuel', 'inni', 'uwagi', 'reason']) {
             const td = tr.insertCell();
             if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
             if (k === 'fuel' || k === 'inni') {
@@ -280,7 +280,7 @@ function effectiveAdds() {
     additions.forEach((a, id) => {
         if (!addOn[id]) return;
         const inni = kindOf(a, id) === 'inni';
-        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && (c !== 'g' || a.g) &&
+        const cells = ADD_CELLS.filter(c => (c !== 'f' || a.f) && (c !== 'g' || a.g) && (c !== 'h' || a.h) &&
             (c !== 'd' || zlEdit[id]) && (c !== 'z' || noteEdit[id]) && !(inni && c === 'gross') &&
             !(c === 'net' && a.amount === null) && !(c === 'vat' && a.vat === null) &&
             !addCellOff.has(id + ':' + c));
@@ -371,14 +371,14 @@ function renderNewOps() {
         const isFuel = isFuelAdd(a, id);
         const comma = s => (s === null ? null : s.replace('.', ','));
         const value = {
-            b: a.b, c: a.c, d: zlEdit[id] || '', e: eEdit[id] || a.e, f: a.f ? a.f.text : '', g: a.g ? a.g.text : '', z: noteEdit[id] || '',
+            b: a.b, c: a.c, d: zlEdit[id] || '', e: eEdit[id] || a.e, f: a.f ? a.f.text : '', g: a.g ? a.g.text : '', h: a.h ? a.h.text : '', z: noteEdit[id] || '',
             net: comma(a.amount), gross: comma(a.gross), vat: comma(a.vat),
         };
         // kolumna podglądu -> klucz komórki; każda komórka kwoty włącza się/wyłącza osobno
-        const colKey = { b: 'b', c: 'c', d: 'd', e: 'e', f: 'f', g: 'g', z: 'z', P: 'net', S: 'net', X: 'net', Q: 'gross', T: 'gross', R: 'vat', U: 'vat', Y: 'vat' };
+        const colKey = { b: 'b', c: 'c', d: 'd', e: 'e', f: 'f', g: 'g', h: 'h', z: 'z', P: 'net', S: 'net', X: 'net', Q: 'gross', T: 'gross', R: 'vat', U: 'vat', Y: 'vat' };
         const kind = kindOf(a, id);
         const activeCols = kind === 'fuel' ? ['S', 'T', 'U'] : kind === 'inni' ? ['X', 'Y'] : [a.amountCol, a.grossCol, a.vatCol];
-        for (const col of ['e', 'verify', 'b', 'c', 'd', 'f', 'g', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y', 'z']) {
+        for (const col of ['e', 'verify', 'b', 'c', 'd', 'f', 'g', 'h', 'P', 'Q', 'R', 'S', 'T', 'U', 'X', 'Y', 'z']) {
             if (col === 'verify') {
                 const vt = tr.insertCell();
                 if (a.verify.ok) {
@@ -416,6 +416,11 @@ function renderNewOps() {
                 td.className = 'same';
                 continue;
             }
+            if (key === 'h' && !a.h) {
+                td.textContent = '— (brak daty zapłaty w XML)';
+                td.className = 'same';
+                continue;
+            }
             if ((key === 'd' || key === 'z') && !value[key]) {
                 td.textContent = '—';
                 td.className = 'same';
@@ -432,6 +437,7 @@ function renderNewOps() {
             n.className = 'new';
             n.textContent = value[key];
             td.append(o, ' → ', n);
+            if (key === 'g' && a.g.auto) td.append(' (auto)'); // termin wzięty z daty faktycznej zapłaty
             td.onclick = () => {
                 if (addCellOff.has(k)) addCellOff.delete(k); else addCellOff.add(k);
                 renderNewOps();

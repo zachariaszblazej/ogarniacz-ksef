@@ -1,5 +1,5 @@
 const XLSX = require('xlsx');
-const { readAmounts, readDueDate } = require('./xmlInvoice');
+const { readAmounts, readDueDate, readPaidDate } = require('./xmlInvoice');
 const { pdfPath } = require('./pdfInvoice');
 
 const MONTHS = ['styczen', 'luty', 'marzec', 'kwiecien', 'maj', 'czerwiec',
@@ -121,7 +121,7 @@ function isKsefDone(b, c) {
 // Kolumny wejściowe (ręcznie wypełniane) - wolny wiersz musi mieć je wszystkie puste
 const INPUT_COLS = Array.from({ length: 25 }, (_, i) => i + 2); // B..Z
 // Kolumny, do których zapisujemy - ich komórki muszą istnieć (być sformatowane) w wierszu
-const WRITE_COLS = [2, 3, 4, 5, 6, 7, 12, 16, 26];
+const WRITE_COLS = [2, 3, 4, 5, 6, 7, 8, 12, 16, 26];
 
 function hasCell(ws, row, col) {
     return Boolean(ws[XLSX.utils.encode_cell({ r: row - 1, c: col - 1 })]);
@@ -226,7 +226,7 @@ function makePlanItem(inv, e) {
     return item;
 }
 
-function match(invoices, ledger, amountsFor, dueFor) {
+function match(invoices, ledger, amountsFor, dueFor, paidFor) {
     const ledgerC = Object.values(ledger).flatMap(d => d.cTexts).join('\n');
     // faktura jest już w ewidencji, gdy jej numer KSEF występuje w kolumnie "nr FV"
     const isAlready = inv => { const k = String(inv.ksef ?? '').trim(); return k !== '' && ledgerC.includes(k); };
@@ -266,9 +266,11 @@ function match(invoices, ledger, amountsFor, dueFor) {
             });
         } else {
             const due = dueFor ? dueFor(inv.ksef) : null; // termin płatności z XML: { text, serial } albo null
+            const paid = paidFor ? paidFor(inv.ksef) : null; // faktyczna data zapłaty z XML (tylko gdy Zaplacono = 1)
             const rec = {
                 date: inv.date, ksef: inv.ksef, contractor: firstWord(inv.contractor),
                 due: due ? due.text : '',
+                paid: paid ? paid.text : '',
                 amount: inv.cents === null ? String(inv.amount) : (inv.cents / 100).toFixed(2),
                 reason,
             };
@@ -296,7 +298,9 @@ function match(invoices, ledger, amountsFor, dueFor) {
                         c: ksef,
                         e: firstWord(inv.contractor),
                         f: date ? { text: date.text, serial: date.serial } : null,
-                        g: due ? { text: due.text, serial: due.serial } : null,
+                        // brak terminu zapłaty, ale faktura opłacona: do G trafia data faktycznej zapłaty (auto)
+                        g: due ? { text: due.text, serial: due.serial } : (paid ? { text: paid.text, serial: paid.serial, auto: true } : null),
+                        h: paid ? { text: paid.text, serial: paid.serial } : null,
                         amountCol: 'P', // koszty netto
                         amount: netC === null ? null : centsString(netC),
                         gross: centsString(grossC),
@@ -320,7 +324,7 @@ async function run(invoicesPath, ledgerPath, xmlDir, pdfDir) {
     const invoices = await readInvoices(invoicesPath);
     const ledger = await readLedger(ledgerPath);
     const months = Object.keys(ledger).map(Number).sort((a, b) => a - b);
-    const result = match(invoices, ledger, ksef => readAmounts(xmlDir, ksef), ksef => dateParts(readDueDate(xmlDir, ksef)));
+    const result = match(invoices, ledger, ksef => readAmounts(xmlDir, ksef), ksef => dateParts(readDueDate(xmlDir, ksef)), ksef => dateParts(readPaidDate(xmlDir, ksef)));
     for (const list of [result.matched, result.unmatched, result.already, result.plan, result.additions]) {
         for (const r of list) r.pdf = pdfPath(pdfDir, r.ksef) !== null;
     }

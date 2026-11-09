@@ -53,14 +53,8 @@ function readAmounts(dir, ksef) {
 // Fa/Platnosc/TerminPlatnosci/Termin (RRRR-MM-DD) - pierwszy termin; null, gdy brak pliku, znacznika lub daty.
 function readDueDate(dir, ksef) {
     try {
-        const id = String(ksef ?? '').trim();
-        if (!dir || !/^[A-Za-z0-9-]+$/.test(id)) return null;
-        const file = path.join(dir, id + '.xml');
-        if (!fs.existsSync(file)) return null;
-        const xml = fs.readFileSync(file, 'utf8');
-        const fa = /<(?:[\w.-]+:)?Fa(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?Fa>/.exec(xml);
-        const pay = fa && /<(?:[\w.-]+:)?Platnosc(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?Platnosc>/.exec(fa[1]);
-        const tp = pay && /<(?:[\w.-]+:)?TerminPlatnosci(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?TerminPlatnosci>/.exec(pay[1]);
+        const pay = readPlatnosc(dir, ksef);
+        const tp = pay && /<(?:[\w.-]+:)?TerminPlatnosci(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?TerminPlatnosci>/.exec(pay);
         const t = tp && /<(?:[\w.-]+:)?Termin>\s*(\d{4}-\d{2}-\d{2})\s*<\/(?:[\w.-]+:)?Termin>/.exec(tp[1]);
         return t ? t[1] : null;
     } catch {
@@ -68,4 +62,28 @@ function readDueDate(dir, ksef) {
     }
 }
 
-module.exports = { readAmounts, readDueDate, decimalToCents };
+// Fa/Platnosc/DataZaplaty (RRRR-MM-DD), tylko gdy Fa/Platnosc/Zaplacono = 1; w przeciwnym razie null.
+function readPaidDate(dir, ksef) {
+    try {
+        const pay = readPlatnosc(dir, ksef);
+        const paid = pay && /<(?:[\w.-]+:)?Zaplacono>\s*1\s*<\/(?:[\w.-]+:)?Zaplacono>/.test(pay);
+        const d = paid && /<(?:[\w.-]+:)?DataZaplaty>\s*(\d{4}-\d{2}-\d{2})\s*<\/(?:[\w.-]+:)?DataZaplaty>/.exec(pay);
+        return d ? d[1] : null;
+    } catch {
+        return null;
+    }
+}
+
+// Treść sekcji Fa/Platnosc z pliku <dir>/<nr KSEF>.xml albo null
+function readPlatnosc(dir, ksef) {
+    const id = String(ksef ?? '').trim();
+    if (!dir || !/^[A-Za-z0-9-]+$/.test(id)) return null;
+    const file = path.join(dir, id + '.xml');
+    if (!fs.existsSync(file)) return null;
+    const xml = fs.readFileSync(file, 'utf8');
+    const fa = /<(?:[\w.-]+:)?Fa(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?Fa>/.exec(xml);
+    const pay = fa && /<(?:[\w.-]+:)?Platnosc(?:\s[^>]*)?>([\s\S]*?)<\/(?:[\w.-]+:)?Platnosc>/.exec(fa[1]);
+    return pay ? pay[1] : null;
+}
+
+module.exports = { readAmounts, readDueDate, readPaidDate, decimalToCents };
