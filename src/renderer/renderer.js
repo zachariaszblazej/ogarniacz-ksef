@@ -437,7 +437,12 @@ function renderNewOps() {
             n.className = 'new';
             n.textContent = value[key];
             td.append(o, ' → ', n);
-            if (key === 'g' && a.g.auto) td.append(' (auto)'); // termin wzięty z daty faktycznej zapłaty
+            if (key === 'g' && a.g.auto) { // termin wzięty z daty faktycznej zapłaty
+                const auto = document.createElement('span');
+                auto.className = 'same';
+                auto.textContent = ' (auto)';
+                td.append(auto);
+            }
             td.onclick = () => {
                 if (addCellOff.has(k)) addCellOff.delete(k); else addCellOff.add(k);
                 renderNewOps();
