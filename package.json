@@ -1,6 +1,6 @@
 {
     "name": "ogarniacz-ksef",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "description": "Ogarniacz KSEF - dopasowanie faktur KSEF do ewidencji operacji finansowych",
     "author": "Ogarniacz KSEF",
     "main": "src/main.js",
