@@ -96,10 +96,10 @@ ipcMain.handle('apply', async (_e, selection) => {
             if (!item || seen.has(s.id) || !Array.isArray(s.cells)) continue;
             seen.add(s.id);
             const clone = { ...item };
-            for (const c of ['b', 'c', 'f']) {
+            for (const c of ['b', 'c', 'f', 'g', 'h']) {
                 clone[c] = { ...item[c], changed: item[c].changed && s.cells.includes(c) };
             }
-            clone.hasChanges = clone.b.changed || clone.c.changed || clone.f.changed;
+            clone.hasChanges = ['b', 'c', 'f', 'g', 'h'].some(c => clone[c].changed);
             if (clone.hasChanges) filtered.push(clone);
         }
 

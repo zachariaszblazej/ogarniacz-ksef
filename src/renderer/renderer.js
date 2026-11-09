@@ -4,7 +4,7 @@ const paths = { inv: null, xml: null, pdf: null, led: null };
 let fullPlan = [];      // plan z matchera (indeks = id zmatchowanej operacji)
 let matchOn = [];       // przełączniki operacji
 let cellOff = new Set(); // wyłączone komórki: "id:b" / "id:c" / "id:f"
-const CELLS = ['b', 'c', 'f'];
+const CELLS = ['b', 'c', 'f', 'g', 'h'];
 
 // Nowe operacje (z faktur niezmatchowanych z powodu braku matchy)
 let additions = [];       // z matchera (indeks = id)
@@ -126,12 +126,28 @@ function makeSwitch(title, onChange) {
 }
 
 // ---- Lista zmatchowanych: przełączniki aktywności ----
+// Data z XML w kolumnie G/H: wpisywana tylko do pustej komórki; gdy w ewidencji coś już jest - sam komunikat
+function dateStatusCell(td, c) {
+    if (c.status === 'same' || c.status === 'diff') {
+        td.textContent = c.status === 'same' ? 'już jest' : 'już jest, ale się różnią';
+        td.className = 'same';
+    } else if (c.status === 'new') {
+        td.textContent = c.new;
+        if (c.auto) {
+            const auto = document.createElement('span');
+            auto.className = 'same';
+            auto.textContent = ' (auto)';
+            td.append(auto);
+        }
+    }
+}
+
 function renderMatched(matched) {
     const tbody = $('t-ok');
     tbody.replaceChildren();
     if (!matched.length) {
         const td = tbody.insertRow().insertCell();
-        td.colSpan = 9;
+        td.colSpan = 11;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
@@ -144,9 +160,10 @@ function renderMatched(matched) {
             tr.classList.toggle('off', !on);
             refreshFillState();
         }));
-        for (const k of ['pdf', 'date', 'lp', 'ksef', 'contractor', 'firma', 'amount', 'uwagi']) {
+        for (const k of ['pdf', 'date', 'lp', 'ksef', 'contractor', 'firma', 'gTerm', 'hPaid', 'amount', 'uwagi']) {
             const td = tr.insertCell();
             if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
+            if (k === 'gTerm' || k === 'hPaid') { dateStatusCell(td, fullPlan[i][k === 'gTerm' ? 'g' : 'h']); continue; }
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';
         }
@@ -323,6 +340,12 @@ function diffCell(tr, id, key, c) {
     n.className = 'new';
     n.textContent = c.new;
     td.append(o, ' → ', n);
+    if (c.auto) { // termin wzięty z daty faktycznej zapłaty
+        const auto = document.createElement('span');
+        auto.className = 'same';
+        auto.textContent = ' (auto)';
+        td.append(auto);
+    }
     td.onclick = () => {
         const k = id + ':' + key;
         if (cellOff.has(k)) cellOff.delete(k); else cellOff.add(k);
@@ -458,6 +481,8 @@ $('fill').onclick = () => {
         diffCell(tr, id, 'b', p.b);
         diffCell(tr, id, 'c', p.c);
         diffCell(tr, id, 'f', p.f);
+        diffCell(tr, id, 'g', p.g);
+        diffCell(tr, id, 'h', p.h);
     });
     $('m-changes-wrap').classList.toggle('hidden', changeRows === 0);
     renderNewOps();

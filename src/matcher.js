@@ -101,6 +101,7 @@ async function readLedger(path) {
                 data[key].get(k).push({
                     lp, firma, uwagi, sheet: sheetName, row: n, gross: k, // brutto z ewidencji (Q, T albo X+Y), w groszach
                     b: cell(ws, n, 2), c: cell(ws, n, 3), f: cell(ws, n, 6),
+                    g: cell(ws, n, 7), h: cell(ws, n, 8), gHas: hasCell(ws, n, 7), hHas: hasCell(ws, n, 8),
                 });
             }
         }
@@ -202,8 +203,23 @@ function displayDate(v) {
     return v === null || v === undefined ? '' : String(v).trim();
 }
 
+// Data z XML do kolumny G/H istniejącej operacji; nigdy nie nadpisuje wartości już wpisanej w ewidencji.
+// status: 'none' (brak daty w XML lub brak komórki), 'new' (wpisujemy), 'same' (już jest), 'diff' (już jest, ale inna)
+function dateCell(oldVal, hasCellInSheet, proposed) {
+    const old = displayDate(oldVal);
+    if (!proposed) return { old, new: old, changed: false, serial: null, status: 'none' };
+    if (old !== '') {
+        const cur = dateParts(oldVal);
+        const same = Boolean(cur) && cur.text === proposed.text;
+        return { old, new: old, changed: false, serial: null, status: same ? 'same' : 'diff' };
+    }
+    if (!hasCellInSheet) return { old, new: old, changed: false, serial: null, status: 'none' };
+    return { old, new: proposed.text, changed: true, serial: proposed.serial, status: 'new', auto: Boolean(proposed.auto) };
+}
+
 // Plan zmian w ewidencji dla jednej zmatchowanej operacji
-function makePlanItem(inv, e) {
+// dates: { g, h } - daty z XML ({ text, serial, auto? } albo null)
+function makePlanItem(inv, e, dates) {
     const ksef = String(inv.ksef).trim();
     const bOld = e.b === null ? '' : String(e.b).trim();
     const cOld = e.c === null ? '' : String(e.c).trim();
@@ -221,8 +237,10 @@ function makePlanItem(inv, e) {
             serial: date ? date.serial : null,
             asText: typeof e.f === 'string' && e.f.trim() !== '',
         },
+        g: dateCell(e.g, e.gHas, dates.g),
+        h: dateCell(e.h, e.hHas, dates.h),
     };
-    item.hasChanges = item.b.changed || item.c.changed || item.f.changed;
+    item.hasChanges = item.b.changed || item.c.changed || item.f.changed || item.g.changed || item.h.changed;
     return item;
 }
 
@@ -246,6 +264,10 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
             });
             continue;
         }
+        const due = dueFor ? dueFor(inv.ksef) : null; // termin płatności z XML: { text, serial } albo null
+        const paid = paidFor ? paidFor(inv.ksef) : null; // faktyczna data zapłaty z XML (tylko gdy Zaplacono = 1)
+        // brak terminu zapłaty, ale faktura opłacona: do G trafia data faktycznej zapłaty (auto)
+        const gDate = due || (paid ? { text: paid.text, serial: paid.serial, auto: true } : null);
         let found = [];
         let reason = 'Inne';
         let noMatch = false;
@@ -259,14 +281,12 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
             else if (found.length > 1) reason = 'Wiele dopasowań';
         }
         if (found.length === 1) {
-            plan.push(makePlanItem(inv, found[0]));
+            plan.push(makePlanItem(inv, found[0], { g: gDate, h: paid }));
             matched.push({
                 lp: found[0].lp, amount: (found[0].gross / 100).toFixed(2), date: inv.date,
                 ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma, uwagi: found[0].uwagi,
             });
         } else {
-            const due = dueFor ? dueFor(inv.ksef) : null; // termin płatności z XML: { text, serial } albo null
-            const paid = paidFor ? paidFor(inv.ksef) : null; // faktyczna data zapłaty z XML (tylko gdy Zaplacono = 1)
             const rec = {
                 date: inv.date, ksef: inv.ksef, contractor: firstWord(inv.contractor),
                 due: due ? due.text : '',
@@ -299,7 +319,7 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
                         e: firstWord(inv.contractor),
                         f: date ? { text: date.text, serial: date.serial } : null,
                         // brak terminu zapłaty, ale faktura opłacona: do G trafia data faktycznej zapłaty (auto)
-                        g: due ? { text: due.text, serial: due.serial } : (paid ? { text: paid.text, serial: paid.serial, auto: true } : null),
+                        g: gDate,
                         h: paid ? { text: paid.text, serial: paid.serial } : null,
                         amountCol: 'P', // koszty netto
                         amount: netC === null ? null : centsString(netC),

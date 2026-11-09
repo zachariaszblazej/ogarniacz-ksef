@@ -74,6 +74,9 @@ async function applyPlan(file, plan, backupDir, adds = []) {
                     ? setCell(xml, `F${it.row}`, 'str', it.f.new)
                     : setCell(xml, `F${it.row}`, 'num', it.f.serial);
             }
+            // G/H: wpisujemy tylko do pustych komórek (changed = true tylko wtedy)
+            if (it.g.changed) xml = setCell(xml, `G${it.row}`, 'num', it.g.serial);
+            if (it.h.changed) xml = setCell(xml, `H${it.row}`, 'num', it.h.serial);
             changedRecords++;
         }
         for (const a of sheetAdds) {
