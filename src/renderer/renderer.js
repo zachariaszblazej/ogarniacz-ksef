@@ -411,17 +411,7 @@ function renderNewOps() {
                 td.className = 'same';
                 continue;
             }
-            if (key === 'g' && !a.g) {
-                td.textContent = '— (brak terminu w XML)';
-                td.className = 'same';
-                continue;
-            }
-            if (key === 'h' && !a.h) {
-                td.textContent = '— (brak daty zapłaty w XML)';
-                td.className = 'same';
-                continue;
-            }
-            if ((key === 'd' || key === 'z') && !value[key]) {
+            if ((key === 'd' || key === 'g' || key === 'h' || key === 'z') && !value[key]) {
                 td.textContent = '—';
                 td.className = 'same';
                 continue;
