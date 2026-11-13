@@ -272,11 +272,18 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         let reason = 'Inne';
         let noMatch = false;
         const month = inv.dateParts ? inv.dateParts.month : null;
-        if (inv.cents !== null && counts.get(inv.cents) > 1) {
-            reason = 'Wiele faktur na tę samą kwotę';
+        const multi = inv.cents !== null && counts.get(inv.cents) > 1; // kilka faktur od księgowej na tę samą kwotę
+        // wszystkie faktury to koszty; ujemne brutto (korekty) szukamy ze znakiem minus
+        const ops = inv.cents !== null && ledger[month] ? (ledger[month].koszt.get(inv.cents) || []) : [];
+        if (multi) {
+            if (ops.length) {
+                reason = 'Wiele faktur i wiele operacji na tę samą kwotę';
+            } else {
+                reason = 'Wiele faktur, ale brak operacji na tę samą kwotę';
+                noMatch = Boolean(ledger[month]); // dopisujemy jako nowe operacje (wymaga arkusza miesiąca)
+            }
         } else if (inv.cents !== null && ledger[month]) {
-            // wszystkie faktury to koszty; ujemne brutto (korekty) szukamy ze znakiem minus
-            found = ledger[month].koszt.get(inv.cents) || [];
+            found = ops;
             if (found.length === 0) { reason = 'Brak dopasowania'; noMatch = true; }
             else if (found.length > 1) reason = 'Wiele dopasowań';
         }

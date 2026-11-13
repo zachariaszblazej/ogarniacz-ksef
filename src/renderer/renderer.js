@@ -75,7 +75,33 @@ function showMsg(text, info) {
     m.className = 'msg' + (info ? ' info' : '');
 }
 
+// Okno potwierdzenia: OK -> true, Anuluj lub Esc -> false (zamyka tylko to okno)
+function askConfirm(text) {
+    return new Promise(resolve => {
+        $('cf-text').textContent = text;
+        $('confirm').classList.remove('hidden');
+        $('cf-cancel').focus(); // bezpieczniejszy domyślny wybór przy kasowaniu pracy
+        const onKey = e => { if (e.key === 'Escape') close(false); };
+        const close = result => {
+            $('confirm').classList.add('hidden');
+            $('cf-ok').onclick = $('cf-cancel').onclick = null;
+            document.removeEventListener('keydown', onKey);
+            resolve(result);
+        };
+        document.addEventListener('keydown', onKey);
+        $('cf-ok').onclick = () => close(true);
+        $('cf-cancel').onclick = () => close(false);
+    });
+}
+
+// Praca jest w programie, gdy wyświetlone są wyniki dopasowania
+async function confirmDiscard() {
+    const hasWork = !$('stats').classList.contains('hidden');
+    return !hasWork || await askConfirm('To skasuje obecną pracę. Czy na pewno chcesz kontynuować?');
+}
+
 $('run').onclick = async () => {
+    if (!(await confirmDiscard())) return;
     $('msg').className = 'msg hidden';
     $('run').disabled = true;
     $('run').textContent = 'Liczę…';
@@ -527,6 +553,7 @@ $('open-backups').onclick = () => api.openBackups();
 
 // ---- Wyczyść wszystko: powrót do stanu początkowego ----
 $('reset').onclick = async () => {
+    if (!(await confirmDiscard())) return;
     await api.reset();
     paths.inv = paths.xml = paths.pdf = paths.led = null;
     for (const k of ['inv', 'xml', 'pdf', 'led']) {

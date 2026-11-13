@@ -338,6 +338,11 @@ tbody tr:hover {
     margin: 0;
 }
 
+.dialog.small {
+    width: 420px;
+    max-width: 100%;
+}
+
 .dialog .warning {
     color: var(--muted);
 }
