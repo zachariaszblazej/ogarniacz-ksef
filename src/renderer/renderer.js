@@ -48,7 +48,6 @@ function clearSourcePaths() {
         $('f-' + k).textContent = k === 'inv' ? 'Nie wybrano pliku' : 'Nie wybrano folderu';
         $('p-' + k).classList.remove('set');
     }
-    $('f-bundle').title = '';
     $('run').disabled = true;
 }
 
@@ -68,8 +67,15 @@ $('b-bundle').onclick = async () => {
     setPath('inv', res.inv);
     setPath('xml', res.xml);
     setPath('pdf', res.pdf);
-    $('f-bundle').textContent = res.dir;
-    $('f-bundle').title = `Lista: ${res.inv}\nXML: ${res.xml}\nPDF: ${res.pdf}`;
+    const f = $('f-bundle');
+    f.replaceChildren();
+    for (const [label, p] of [['Lista faktur', res.inv], ['Folder XML', res.xml], ['Folder PDF', res.pdf]]) {
+        const line = document.createElement('div');
+        const b = document.createElement('b');
+        b.textContent = label + ': ';
+        line.append(b, p);
+        f.append(line);
+    }
     $('p-bundle').classList.add('set');
 };
 
