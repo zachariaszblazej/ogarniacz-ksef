@@ -245,6 +245,7 @@ function makePlanItem(inv, e, dates) {
         g: dateCell(e.g, e.gHas, dates.g),
         h: dateCell(e.h, e.hHas, dates.h),
     };
+    item.paidBoth = Boolean(dates.h) && item.g.old !== '' && item.h.old !== ''; // opłacona w XML i G, H wypełnione w ewidencji
     item.hasChanges = item.b.changed || item.c.changed || item.f.changed || item.g.changed || item.h.changed;
     return item;
 }

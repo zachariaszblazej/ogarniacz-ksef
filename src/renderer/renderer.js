@@ -5,6 +5,7 @@ let fullPlan = [];      // plan z matchera (indeks = id zmatchowanej operacji)
 let matchOn = [];       // przełączniki operacji
 let cellOff = new Set(); // wyłączone komórki: "id:b" / "id:c" / "id:f"
 let pickInv = new Set(); // G/H, w których wybrano datę z faktury zamiast tej z ewidencji: "id:g" / "id:h"
+let dateCells = []; // komórki G/H tabeli dopasowanych: { td, i, col } - do przerysowania po zmianie ustawienia
 const CELLS = ['b', 'c', 'f', 'g', 'h'];
 
 // Nowe operacje (z faktur niezmatchowanych z powodu braku matchy)
@@ -58,6 +59,22 @@ $('bundle-toggle').onchange = () => {
     localStorage.setItem('bundleMode', $('bundle-toggle').checked ? '1' : '0');
     clearSourcePaths();
     applyMode($('bundle-toggle').checked);
+};
+
+// Ustawienie (pamiętane między sesjami, domyślnie włączone): opłacone pozycje - tylko informacja zamiast przełącznika dat
+let paidInfo = localStorage.getItem('paidInfo') !== '0';
+$('paid-info-toggle').checked = paidInfo;
+$('paid-info-toggle').onchange = () => {
+    paidInfo = $('paid-info-toggle').checked;
+    localStorage.setItem('paidInfo', paidInfo ? '1' : '0');
+    // wybór „z faktury” w opłaconych pozycjach nie ma sensu, gdy pokazujemy tylko informację
+    if (paidInfo) fullPlan.forEach((p, id) => { if (p.paidBoth) { pickInv.delete(id + ':g'); pickInv.delete(id + ':h'); } });
+    for (const { td, i, col } of dateCells) {
+        td.replaceChildren();
+        td.className = '';
+        dateStatusCell(td, fullPlan[i], i, col);
+    }
+    refreshFillState();
 };
 
 $('b-bundle').onclick = async () => {
@@ -201,11 +218,15 @@ function makeSwitch(title, onChange) {
 // ---- Lista zmatchowanych: przełączniki aktywności ----
 // Data z XML w kolumnie G/H: do pustej komórki wpisujemy ją sami; gdy w ewidencji coś już jest i się różni,
 // użytkownik przełącza między wartością z ewidencji (domyślnie) a wartością z faktury (wyróżniona)
-function dateStatusCell(td, c, id, col) {
+function dateStatusCell(td, p, id, col) {
+    const c = p[col];
     if (c.status === 'same') {
         td.textContent = 'już jest';
         td.className = 'same';
-    } else if (c.status === 'diff' && c.alt) {
+    } else if (c.status === 'diff' && (!c.alt || (paidInfo && p.paidBoth))) {
+        td.textContent = 'już jest, ale się różnią'; // opłacona pozycja: tylko informacja
+        td.className = 'same';
+    } else if (c.status === 'diff') {
         const key = id + ':' + col;
         const group = document.createElement('span');
         group.className = 'seg-group';
@@ -244,6 +265,7 @@ function dateStatusCell(td, c, id, col) {
 
 function renderMatched(matched) {
     const tbody = $('t-ok');
+    dateCells = [];
     tbody.replaceChildren();
     if (!matched.length) {
         const td = tbody.insertRow().insertCell();
@@ -263,7 +285,12 @@ function renderMatched(matched) {
         for (const k of ['pdf', 'date', 'lp', 'ksef', 'contractor', 'firma', 'gTerm', 'hPaid', 'amount', 'uwagi']) {
             const td = tr.insertCell();
             if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
-            if (k === 'gTerm' || k === 'hPaid') { dateStatusCell(td, fullPlan[i][k === 'gTerm' ? 'g' : 'h'], i, k === 'gTerm' ? 'g' : 'h'); continue; }
+            if (k === 'gTerm' || k === 'hPaid') {
+                const col = k === 'gTerm' ? 'g' : 'h';
+                dateCells.push({ td, i, col });
+                dateStatusCell(td, fullPlan[i], i, col);
+                continue;
+            }
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';
         }

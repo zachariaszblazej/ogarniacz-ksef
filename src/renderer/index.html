@@ -19,10 +19,16 @@
     </header>
 
     <main>
-        <label class="mode-row" title="Włączony: jeden folder z listą (ZAKUP), folderem XML i folderem PDF. Wyłączony: każda rzecz osobno.">
-            <span class="switch"><input type="checkbox" id="bundle-toggle"><span class="knob"></span></span>
-            <span>Wczytaj listę, XML i PDF z jednego folderu</span>
-        </label>
+        <div class="mode-rows">
+            <label class="mode-row" title="Włączony: jeden folder z listą (ZAKUP), folderem XML i folderem PDF. Wyłączony: każda rzecz osobno.">
+                <span class="switch"><input type="checkbox" id="bundle-toggle"><span class="knob"></span></span>
+                <span>Wczytaj listę, XML i PDF z jednego folderu</span>
+            </label>
+            <label class="mode-row" title="Włączony: dla opłaconych pozycji (zapłacono w XML + wypełnione G i H w ewidencji) tylko informacja. Wyłączony: można przełączać między datą z ewidencji a z faktury.">
+                <span class="switch"><input type="checkbox" id="paid-info-toggle"><span class="knob"></span></span>
+                <span>Opłacone pozycje: tylko informacja „już jest, ale się różnią”</span>
+            </label>
+        </div>
         <section class="pickers" id="pickers">
             <div class="picker" id="p-bundle">
                 <span class="label">Folder z fakturami (lista ZAKUP, XML, PDF)</span>

@@ -67,6 +67,12 @@ main {
     align-items: stretch;
 }
 
+.mode-rows {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 28px;
+}
+
 .mode-row {
     display: flex;
     align-items: center;
