@@ -4,6 +4,7 @@ const paths = { inv: null, xml: null, pdf: null, led: null };
 let fullPlan = [];      // plan z matchera (indeks = id zmatchowanej operacji)
 let matchOn = [];       // przełączniki operacji
 let cellOff = new Set(); // wyłączone komórki: "id:b" / "id:c" / "id:f"
+let pickInv = new Set(); // G/H, w których wybrano datę z faktury zamiast tej z ewidencji: "id:g" / "id:h"
 const CELLS = ['b', 'c', 'f', 'g', 'h'];
 
 // Nowe operacje (z faktur niezmatchowanych z powodu braku matchy)
@@ -159,6 +160,7 @@ $('run').onclick = async () => {
     fullPlan = plan;
     matchOn = plan.map(() => true);
     cellOff = new Set();
+    pickInv = new Set();
     additions = adds;
     freeRows = free;
     addOn = adds.map(() => true);
@@ -197,11 +199,38 @@ function makeSwitch(title, onChange) {
 }
 
 // ---- Lista zmatchowanych: przełączniki aktywności ----
-// Data z XML w kolumnie G/H: wpisywana tylko do pustej komórki; gdy w ewidencji coś już jest - sam komunikat
-function dateStatusCell(td, c) {
-    if (c.status === 'same' || c.status === 'diff') {
-        td.textContent = c.status === 'same' ? 'już jest' : 'już jest, ale się różnią';
+// Data z XML w kolumnie G/H: do pustej komórki wpisujemy ją sami; gdy w ewidencji coś już jest i się różni,
+// użytkownik przełącza między wartością z ewidencji (domyślnie) a wartością z faktury (wyróżniona)
+function dateStatusCell(td, c, id, col) {
+    if (c.status === 'same') {
+        td.textContent = 'już jest';
         td.className = 'same';
+    } else if (c.status === 'diff' && c.alt) {
+        const key = id + ':' + col;
+        const group = document.createElement('span');
+        group.className = 'seg-group';
+        const mk = (text, title, fromInvoice) => {
+            const s = document.createElement('span');
+            s.className = 'seg' + (fromInvoice ? ' inv' : '');
+            s.textContent = text;
+            s.title = title;
+            s.onclick = () => {
+                if (fromInvoice) pickInv.add(key); else pickInv.delete(key);
+                paint();
+                refreshFillState();
+            };
+            return s;
+        };
+        const ledgerSeg = mk(c.old, 'Wartość z ewidencji (zostaje bez zmian)', false);
+        const invoiceSeg = mk(c.alt.text + (c.alt.auto ? ' (auto)' : ''), 'Wartość z faktury (zastąpi tę z ewidencji)', true);
+        const paint = () => {
+            const inv = pickInv.has(key);
+            ledgerSeg.classList.toggle('on', !inv);
+            invoiceSeg.classList.toggle('on', inv);
+        };
+        paint();
+        group.append(ledgerSeg, invoiceSeg);
+        td.append(group);
     } else if (c.status === 'new') {
         td.textContent = c.new;
         if (c.auto) {
@@ -234,7 +263,7 @@ function renderMatched(matched) {
         for (const k of ['pdf', 'date', 'lp', 'ksef', 'contractor', 'firma', 'gTerm', 'hPaid', 'amount', 'uwagi']) {
             const td = tr.insertCell();
             if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
-            if (k === 'gTerm' || k === 'hPaid') { dateStatusCell(td, fullPlan[i][k === 'gTerm' ? 'g' : 'h']); continue; }
+            if (k === 'gTerm' || k === 'hPaid') { dateStatusCell(td, fullPlan[i][k === 'gTerm' ? 'g' : 'h'], i, k === 'gTerm' ? 'g' : 'h'); continue; }
             td.textContent = r[k] ?? '';
             if (k === 'amount') td.className = 'num';
         }
@@ -349,12 +378,20 @@ function renderUnmatched(unmatched) {
     }
 }
 
+// Widok komórki planu z uwzględnieniem wyboru daty z faktury zamiast tej z ewidencji (G/H)
+function cellView(id, key, c) {
+    if (c.status === 'diff' && c.alt && pickInv.has(id + ':' + key)) {
+        return { old: c.old, new: c.alt.text, changed: true, auto: c.alt.auto };
+    }
+    return c;
+}
+
 // Skuteczny plan: tylko włączone operacje i włączone komórki
 function effectivePlan() {
     const out = [];
     fullPlan.forEach((p, id) => {
         if (!matchOn[id]) return;
-        const cells = CELLS.filter(c => p[c].changed && !cellOff.has(id + ':' + c));
+        const cells = CELLS.filter(c => cellView(id, c, p[c]).changed && !cellOff.has(id + ':' + c));
         if (cells.length) out.push({ id, p, cells });
     });
     return out;
@@ -388,7 +425,7 @@ function refreshFillState() {
     $('s-ok').textContent = matchedCount;
     $('fill').disabled = eff.length === 0 && effectiveAdds().length === 0;
     $('fill-info').textContent = matchedCount === 0 ? ''
-        : fullPlan.every(p => !p.hasChanges) ? 'Ewidencja jest już uzupełniona – brak zmian do zapisania.'
+        : fullPlan.every(p => !p.hasChanges) && eff.length === 0 ? 'Ewidencja jest już uzupełniona – brak zmian do zapisania.'
             : `Do zmiany: ${eff.length} z ${matchedCount} operacji.`;
     $('new-info').textContent = `Nowych operacji: ${newCount}`;
 }
@@ -542,7 +579,7 @@ $('fill').onclick = () => {
     // w podglądzie wszystkie włączone operacje; wyłączone komórki są niebieskie
     let changeRows = 0;
     fullPlan.forEach((p, id) => {
-        if (!matchOn[id] || !p.hasChanges) return;
+        if (!matchOn[id] || !CELLS.some(c => cellView(id, c, p[c]).changed)) return;
         changeRows++;
         const tr = body.insertRow();
         tr.insertCell().textContent = p.sheet;
@@ -552,8 +589,8 @@ $('fill').onclick = () => {
         diffCell(tr, id, 'b', p.b);
         diffCell(tr, id, 'c', p.c);
         diffCell(tr, id, 'f', p.f);
-        diffCell(tr, id, 'g', p.g);
-        diffCell(tr, id, 'h', p.h);
+        diffCell(tr, id, 'g', cellView(id, 'g', p.g));
+        diffCell(tr, id, 'h', cellView(id, 'h', p.h));
     });
     $('m-changes-wrap').classList.toggle('hidden', changeRows === 0);
     renderNewOps();
@@ -571,7 +608,7 @@ document.addEventListener('keydown', e => {
 
 $('m-ok').onclick = async () => {
     const selection = {
-        changes: effectivePlan().map(e => ({ id: e.id, cells: e.cells })),
+        changes: effectivePlan().map(e => ({ id: e.id, cells: e.cells, over: e.cells.filter(c => pickInv.has(e.id + ':' + c)) })),
         adds: effectiveAdds().map(e => ({ id: e.id, cells: e.cells, fuel: kindOf(e.a, e.id) === 'fuel', kind: kindOf(e.a, e.id), e: eEdit[e.id] || '', zl: zlEdit[e.id] || '', uwagi: noteEdit[e.id] || '' })),
     };
     $('m-ok').disabled = true;

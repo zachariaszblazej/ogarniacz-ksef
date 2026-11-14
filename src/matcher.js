@@ -211,7 +211,12 @@ function dateCell(oldVal, hasCellInSheet, proposed) {
     if (old !== '') {
         const cur = dateParts(oldVal);
         const same = Boolean(cur) && cur.text === proposed.text;
-        return { old, new: old, changed: false, serial: null, status: same ? 'same' : 'diff' };
+        // diff: wartość z faktury zostaje jako alternatywa, którą użytkownik może wybrać zamiast tej z ewidencji
+        const alt = same ? undefined : {
+            text: proposed.text, serial: proposed.serial, auto: Boolean(proposed.auto),
+            asText: typeof oldVal === 'string' && oldVal.trim() !== '',
+        };
+        return { old, new: old, changed: false, serial: null, status: same ? 'same' : 'diff', alt };
     }
     if (!hasCellInSheet) return { old, new: old, changed: false, serial: null, status: 'none' };
     return { old, new: proposed.text, changed: true, serial: proposed.serial, status: 'new', auto: Boolean(proposed.auto) };

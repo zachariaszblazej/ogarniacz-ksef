@@ -104,7 +104,14 @@ ipcMain.handle('apply', async (_e, selection) => {
             seen.add(s.id);
             const clone = { ...item };
             for (const c of ['b', 'c', 'f', 'g', 'h']) {
-                clone[c] = { ...item[c], changed: item[c].changed && s.cells.includes(c) };
+                const over = (c === 'g' || c === 'h') && Array.isArray(s.over) && s.over.includes(c) && s.cells.includes(c);
+                if (over && item[c].status === 'diff' && item[c].alt) {
+                    // użytkownik wybrał wartość z faktury zamiast istniejącej w ewidencji
+                    const alt = item[c].alt;
+                    clone[c] = { ...item[c], changed: true, new: alt.text, serial: alt.serial, asText: alt.asText };
+                } else {
+                    clone[c] = { ...item[c], changed: item[c].changed && s.cells.includes(c) };
+                }
             }
             clone.hasChanges = ['b', 'c', 'f', 'g', 'h'].some(c => clone[c].changed);
             if (clone.hasChanges) filtered.push(clone);
