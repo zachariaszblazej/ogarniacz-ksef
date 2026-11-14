@@ -213,6 +213,14 @@ button.reject-btn:hover {
     margin-right: 6px;
 }
 
+.stats .op {
+    align-self: center;
+    font-size: 26px;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--muted);
+}
+
 .stat span {
     color: var(--muted);
 }
@@ -341,6 +349,11 @@ tbody tr:hover {
 
 .actions button.primary {
     padding: 8px 22px;
+}
+
+/* nieaktywny przycisk przepuszcza zdarzenia myszy, żeby obwódka mogła pokazać podpowiedź przy kursorze */
+.fill-wrap button:disabled {
+    pointer-events: none;
 }
 
 .hint {

@@ -66,8 +66,13 @@
 
         <section id="stats" class="stats hidden">
             <div class="stat"><b id="s-total">0</b><span>faktur na liście</span></div>
+            <div class="op">=</div>
             <div class="stat ok"><b id="s-ok">0</b><span>dopasowanych</span></div>
+            <div class="op">+</div>
+            <div class="stat"><b id="s-rej">0</b><span>odrzuconych dopasowanych</span></div>
+            <div class="op">+</div>
             <div class="stat warn"><b id="s-bad">0</b><span>niedopasowanych</span></div>
+            <div class="op">+</div>
             <div class="stat"><b id="s-already">0</b><span>już w ewidencji</span></div>
         </section>
 
@@ -165,7 +170,7 @@
         </details>
 
         <div class="actions">
-            <button id="fill" class="primary" disabled>Uzupełnij ewidencję</button>
+            <span id="fill-wrap" class="fill-wrap"><button id="fill" class="primary" disabled>Uzupełnij ewidencję</button></span>
             <button id="open-backups" class="ghost">Otwórz folder kopii zapasowych</button>
         </div>
     </main>

@@ -494,6 +494,7 @@ function renderRejected() {
     tbody.replaceChildren();
     const rows = matchedRecs.filter(r => r.state === 'rejected');
     $('c-rej').textContent = 'Liczba rekordów: ' + rows.length;
+    $('s-rej').textContent = rows.length;
     if (!rows.length) {
         const td = tbody.insertRow().insertCell();
         td.colSpan = 6;
@@ -774,6 +775,18 @@ function effectiveAdds() {
     return out;
 }
 
+// Uzupełnianie ewidencji jest możliwe tylko wtedy, gdy nie ma odrzuconych dopasowań i jest co zapisać
+let fillTip = ''; // podpowiedź przy kursorze nad nieaktywnym przyciskiem (puste = brak)
+function setFillEnabled(nothingToSave) {
+    const hasRejected = matchedRecs.some(r => r.state === 'rejected');
+    $('fill').disabled = nothingToSave || hasRejected;
+    fillTip = hasRejected ? 'Najpierw rozpatrz tabelę „Odrzucone dopasowane”: przywróć faktury lub zapisz je jako nowe operacje' : '';
+    if (!fillTip) hideTip();
+}
+$('fill-wrap').addEventListener('mouseenter', e => { if (fillTip) showTip(fillTip, e); });
+$('fill-wrap').addEventListener('mousemove', e => { if (fillTip) moveTip(e); });
+$('fill-wrap').addEventListener('mouseleave', hideTip);
+
 function refreshFillState() {
     const activeIds = fullPlan.map((_, i) => i).filter(i => matchedRecs[i] && matchedRecs[i].state === 'matched');
     const matchedCount = activeIds.length;
@@ -784,7 +797,7 @@ function refreshFillState() {
     $('s-ok').textContent = matchedCount;
     $('c-bad').textContent = 'Liczba rekordów: ' + badCount;
     $('s-bad').textContent = badCount;
-    $('fill').disabled = eff.length === 0 && effectiveAdds().length === 0;
+    setFillEnabled(eff.length === 0 && effectiveAdds().length === 0);
     $('fill-info').textContent = matchedCount === 0 ? ''
         : activeIds.every(i => !fullPlan[i].hasChanges) && eff.length === 0 ? 'Ewidencja jest już uzupełniona – brak zmian do zapisania.'
             : `Do zmiany: ${eff.length} z ${matchedCount} operacji.`;
@@ -838,7 +851,7 @@ function updateModalSummary() {
     $('m-summary').textContent = text;
     $('m-summary').classList.toggle('error', missing > 0);
     $('m-ok').disabled = !($('m-ack').checked && (eff.length > 0 || adds.length > 0) && missing === 0);
-    $('fill').disabled = eff.length === 0 && adds.length === 0;
+    setFillEnabled(eff.length === 0 && adds.length === 0);
 }
 
 // Podgląd nowych operacji: numery wierszy zależą od aktualnie włączonych pozycji
@@ -1006,7 +1019,7 @@ $('reset').onclick = async () => {
     $('run').textContent = 'Dopasuj';
     $('msg').className = 'msg hidden';
     $('stats').classList.add('hidden');
-    for (const id of ['s-total', 's-ok', 's-bad', 's-already']) $(id).textContent = '0';
+    for (const id of ['s-total', 's-ok', 's-rej', 's-bad', 's-already']) $(id).textContent = '0';
     $('t-ok').replaceChildren();
     $('t-already').replaceChildren();
     $('c-already').textContent = 'Liczba rekordów: 0';
@@ -1023,6 +1036,7 @@ $('reset').onclick = async () => {
     addOn = [];
     addCellOff = new Set();
     $('fill').disabled = true;
+    fillTip = '';
     $('fill-info').textContent = '';
     $('new-info').textContent = '';
     matchedRecs = [];
