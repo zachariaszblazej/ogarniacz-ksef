@@ -277,9 +277,9 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         const ops = inv.cents !== null && ledger[month] ? (ledger[month].koszt.get(inv.cents) || []) : [];
         if (multi) {
             if (ops.length) {
-                reason = 'Wiele faktur i wiele operacji na tę samą kwotę';
+                reason = 'Wiele faktur i wiele operacji na tę kwotę';
             } else {
-                reason = 'Wiele faktur, ale brak operacji na tę samą kwotę';
+                reason = 'Wiele faktur, ale brak operacji na tę kwotę';
                 noMatch = Boolean(ledger[month]); // dopisujemy jako nowe operacje (wymaga arkusza miesiąca)
             }
         } else if (inv.cents !== null && ledger[month]) {
