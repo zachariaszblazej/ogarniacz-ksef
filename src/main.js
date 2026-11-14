@@ -22,6 +22,24 @@ ipcMain.handle('open-backups', async () => {
 });
 
 let mainWindow = null;
+let helpWindow = null;
+
+// Dokumentacja pomocnicza w osobnym oknie (jedno naraz)
+ipcMain.handle('open-help', () => {
+    if (helpWindow) {
+        if (helpWindow.isMinimized()) helpWindow.restore();
+        helpWindow.focus();
+        return;
+    }
+    helpWindow = new BrowserWindow({
+        width: 980, height: 820, minWidth: 600, minHeight: 400,
+        title: 'Ogarniacz KSEF – pomoc', backgroundColor: '#1a1b1e',
+        autoHideMenuBar: true,
+        webPreferences: { contextIsolation: true },
+    });
+    helpWindow.on('closed', () => { helpWindow = null; });
+    helpWindow.loadFile(path.join(__dirname, 'renderer', 'help.html'));
+});
 
 function createWindow() {
     const win = new BrowserWindow({
@@ -31,7 +49,10 @@ function createWindow() {
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
     });
     mainWindow = win;
-    win.on('closed', () => { mainWindow = null; });
+    win.on('closed', () => {
+        mainWindow = null;
+        if (helpWindow) helpWindow.close(); // pomoc nie zostaje sama po zamknięciu programu
+    });
     win.maximize();
     win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }

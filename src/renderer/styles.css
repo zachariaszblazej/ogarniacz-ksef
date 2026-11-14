@@ -37,6 +37,24 @@ header {
     font-size: 12px;
 }
 
+header button.help-btn {
+    margin-top: 0;
+    align-self: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border-radius: 50%;
+    font-weight: 700;
+    background: var(--accent);
+    color: #1a1b1e;
+    border-color: var(--accent);
+}
+
+header button.help-btn:hover {
+    background: #eab570;
+    border-color: #eab570;
+}
+
 .logo {
     display: none;
 }

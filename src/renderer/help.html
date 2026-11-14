@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Ogarniacz KSEF – pomoc</title>
+    <style>
+        :root {
+            --bg: #1a1b1e;
+            --surface: #25262b;
+            --line: #3a3c43;
+            --text: #e6e4de;
+            --muted: #9a9ba3;
+            --accent: #e0a458;
+            --accent-soft: #34302a;
+            --ok: #6fbf8b;
+            --err: #e57373;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text);
+            font: 14px/1.6 "Segoe UI", system-ui, sans-serif;
+        }
+
+        .wrap { max-width: 900px; margin: 0 auto; padding: 24px 28px 60px; }
+        h1 { font-size: 24px; margin: 0 0 4px; }
+        .lead { color: var(--muted); margin: 0 0 20px; }
+        h2 { font-size: 18px; margin: 34px 0 8px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--accent); }
+        h3 { font-size: 15px; margin: 20px 0 6px; }
+        p { margin: 6px 0; }
+        ul, ol { margin: 6px 0; padding-left: 22px; }
+        li { margin: 3px 0; }
+        code, kbd {
+            background: var(--surface);
+            border: 1px solid var(--line);
+            border-radius: 3px;
+            padding: 0 5px;
+            font: 12.5px Consolas, monospace;
+        }
+        .toc { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 10px 18px; }
+        .toc ol { margin: 0; }
+        a { color: var(--accent); }
+        .note {
+            background: var(--accent-soft);
+            border-left: 3px solid var(--accent);
+            padding: 8px 12px;
+            margin: 10px 0;
+        }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { text-align: left; vertical-align: top; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+        th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .4px; background: var(--surface); }
+        .ok { color: var(--ok); }
+        .bad { color: var(--err); }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <h1>Ogarniacz KSEF – pomoc</h1>
+        <p class="lead">Program dopasowuje faktury z KSEF (lista od księgowej) do ewidencji operacji finansowych i bezpiecznie
+            uzupełnia ewidencję w Excelu – po Twoim przejrzeniu i zatwierdzeniu każdej zmiany.</p>
+
+        <div class="toc">
+            <strong>Spis treści</strong>
+            <ol>
+                <li><a href="#start">Szybki start</a></li>
+                <li><a href="#pliki">Co trzeba wczytać</a></li>
+                <li><a href="#tabele">Co pokazuje program</a></li>
+                <li><a href="#zasady">Jak program dopasowuje faktury</a></li>
+                <li><a href="#dopasowane">Faktury dopasowane</a></li>
+                <li><a href="#niedopasowane">Faktury niedopasowane i nowe operacje</a></li>
+                <li><a href="#juz">Faktury już w ewidencji</a></li>
+                <li><a href="#zapis">Zapis do Excela i kopie zapasowe</a></li>
+                <li><a href="#ustawienia">Ustawienia</a></li>
+                <li><a href="#problemy">Komunikaty i rozwiązywanie problemów</a></li>
+            </ol>
+        </div>
+
+        <h2 id="start">1. Szybki start</h2>
+        <ol>
+            <li>Wskaż folder z fakturami (lista ZAKUP, folder XML, folder PDF) – albo każdą z tych rzeczy osobno.</li>
+            <li>Wskaż plik <strong>ewidencji operacji finansowych</strong> (Excel).</li>
+            <li>Kliknij <strong>Dopasuj</strong>.</li>
+            <li>Przejrzyj tabele: dopasowane, niedopasowane, już w ewidencji. Wyłącz to, czego nie chcesz zmieniać.</li>
+            <li>Kliknij <strong>Uzupełnij ewidencję</strong>, sprawdź podgląd zmian, zaznacz zgodę i zapisz.</li>
+        </ol>
+        <div class="note">Program nigdy nie zmienia ewidencji bez Twojej zgody. Przed każdym zapisem tworzy kopię zapasową pliku.</div>
+
+        <h2 id="pliki">2. Co trzeba wczytać</h2>
+        <h3>Tryb „jeden folder” (domyślny)</h3>
+        <p>Przełącznik <strong>„Wczytaj listę, XML i PDF z jednego folderu”</strong> jest domyślnie włączony. Wskazujesz wtedy jeden
+            folder, a program sam szuka w nim (tylko bezpośrednio w środku):</p>
+        <ul>
+            <li><strong>listy faktur</strong> – pliku Excel (<code>.xlsx</code> lub <code>.xlsm</code>) z „ZAKUP” w nazwie,</li>
+            <li><strong>folderu z XML</strong> – podfolderu z „XML” w nazwie,</li>
+            <li><strong>folderu z PDF</strong> – podfolderu z „PDF” w nazwie.</li>
+        </ul>
+        <p>Wielkość liter nie ma znaczenia, pliki tymczasowe Excela (zaczynające się od <code>~$</code>) są pomijane. Po wyborze
+            program wypisuje pełne ścieżki znalezionych elementów. Jeśli czegoś brakuje albo pasuje kilka elementów naraz,
+            pokaże komunikat, co poprawić – nie zgaduje.</p>
+        <h3>Tryb osobny</h3>
+        <p>Po wyłączeniu przełącznika wskazujesz osobno: listę faktur od księgowej, folder z fakturami XML i folder z fakturami PDF.
+            Zmiana trybu czyści wybór tych trzech rzeczy (ewidencja zostaje).</p>
+        <h3>Nazwy plików faktur</h3>
+        <p>Faktury w folderach mają nazwy zawierające numer KSEF: <code>[nr KSEF].xml</code> i <code>[nr KSEF].pdf</code>.</p>
+        <h3>Ewidencja</h3>
+        <p>Plik Excel z arkuszami miesięcy (nazwy zawierają polską nazwę miesiąca, np. „Październik (O)”). Tabele zaczynają się od
+            wiersza 6.</p>
+        <p>Przycisk <strong>Dopasuj</strong> działa dopiero, gdy wybrane jest wszystko, co potrzebne.</p>
+
+        <h2 id="tabele">3. Co pokazuje program</h2>
+        <p>Na górze są statystyki: liczba faktur na liście, dopasowanych, niedopasowanych i już w ewidencji. Poniżej trzy tabele:</p>
+        <table>
+            <tr><th>Tabela</th><th>Znaczenie</th></tr>
+            <tr><td>Dopasowane z ewidencją</td><td>Faktura ma w ewidencji dokładnie jedną pasującą operację. Program proponuje uzupełnić jej dane.</td></tr>
+            <tr><td>Niedopasowane</td><td>Nie udało się jednoznacznie dopasować. Część z nich można dopisać do ewidencji jako nowe operacje.</td></tr>
+            <tr><td>Już w ewidencji</td><td>Numer KSEF tej faktury jest już wpisany w ewidencji. Domyślnie zwinięta.</td></tr>
+        </table>
+        <p>W każdej tabeli kolumna <strong>PDF</strong> ma przycisk otwierający fakturę w pliku PDF. Jeśli pliku nie ma w folderze,
+            przycisk jest nieaktywny.</p>
+
+        <h2 id="zasady">4. Jak program dopasowuje faktury</h2>
+        <p>Dla każdej faktury z listy księgowej program idzie po kolei:</p>
+        <ol>
+            <li><strong>Czy faktura jest już w ewidencji?</strong> Jeśli jej numer KSEF występuje gdziekolwiek w kolumnie C („nr FV”)
+                ewidencji, trafia do tabeli „Już w ewidencji” i na tym koniec.</li>
+            <li><strong>Który arkusz?</strong> Miesiąc jest brany z <strong>daty wystawienia w kolumnie A listy księgowej</strong>.
+                Szukanie odbywa się w arkuszu tego miesiąca.</li>
+            <li><strong>Które kwoty?</strong> Wszystkie faktury traktowane są jako koszty (korekty z minusem też – z zachowanym minusem).
+                Program szuka operacji o takiej samej kwocie brutto w kolumnie <code>Q</code> (koszty brutto),
+                <code>T</code> (koszty brutto paliwo) albo w sumie <code>X + Y</code> („Inni robią zakupy” netto + VAT).</li>
+            <li><strong>Które operacje się liczą?</strong> Pomijane są operacje już oznaczone jako obsłużone: w kolumnie B jest „T”,
+                a w kolumnie C numer KSEF.</li>
+        </ol>
+        <table>
+            <tr><th>Wynik</th><th>Kiedy</th></tr>
+            <tr><td class="ok">Dopasowana</td><td>jedna faktura na tę kwotę i dokładnie jedna operacja na tę kwotę</td></tr>
+            <tr><td>Niedopasowana</td><td>w pozostałych przypadkach – powody w rozdziale 6</td></tr>
+        </table>
+
+        <h2 id="dopasowane">5. Faktury dopasowane</h2>
+        <p>W tabeli widać m.in. numer Lp operacji, kwotę brutto <strong>z ewidencji</strong>, firmę i uwagi z ewidencji. Kolumna
+            <strong>Dodaj</strong> (przełącznik) decyduje, czy zmiany dla tej faktury mają trafić do ewidencji. Domyślnie
+            wszystkie są włączone.</p>
+        <h3>Co program proponuje wpisać</h3>
+        <table>
+            <tr><th>Kolumna ewidencji</th><th>Wartość</th></tr>
+            <tr><td><code>B</code> KSEF</td><td>„T”</td></tr>
+            <tr><td><code>C</code> nr FV</td><td>numer KSEF; gdy w komórce już coś jest – dopisywany po średniku i spacji (<code>…; numer KSEF</code>)</td></tr>
+            <tr><td><code>F</code> data wystawienia</td><td>data z kolumny A listy księgowej (jeśli inna niż w ewidencji)</td></tr>
+            <tr><td><code>G</code> termin zapłaty</td><td>termin z XML (<code>Fa/Platnosc/TerminPlatnosci/Termin</code>); gdy faktura jest opłacona i nie ma terminu – data zapłaty (oznaczana „(auto)”)</td></tr>
+            <tr><td><code>H</code> termin faktycznej zapłaty</td><td>data z XML (<code>Fa/Platnosc/DataZaplaty</code>), tylko gdy <code>Fa/Platnosc/Zaplacono</code> = 1</td></tr>
+        </table>
+        <h3>Kolumny „Termin zapłaty” i „Termin faktycznej zapłaty”</h3>
+        <ul>
+            <li><strong>Komórka w ewidencji pusta</strong> – program pokazuje datę do wpisania.</li>
+            <li><strong>Taka sama data już jest</strong> – widać „już jest”, nic się nie zmienia.</li>
+            <li><strong>Data jest, ale inna</strong> – domyślnie zostaje ta z ewidencji. W komórce są dwie daty do wyboru:
+                lewa to <strong>ewidencja</strong>, prawa to <strong>faktura</strong> (po najechaniu pojawia się etykieta
+                EWIDENCJA lub FAKTURA). Po kliknięciu daty z faktury jest ona wyróżniona i zastąpi wartość w Excelu.</li>
+            <li><strong>Brak daty w XML</strong> – komórka jest pusta i nic nie jest proponowane.</li>
+        </ul>
+        <div class="note">Ustawienie „Opłacone pozycje: tylko informacja” (rozdział 9) zamienia przełącznik dat na tekst
+            „już jest, ale się różnią” dla pozycji opłaconych (zapłacono w XML, a w ewidencji wypełnione G i H).</div>
+
+        <h2 id="niedopasowane">6. Faktury niedopasowane i nowe operacje</h2>
+        <h3>Powody niedopasowania</h3>
+        <table>
+            <tr><th>Powód</th><th>Co znaczy</th><th>Dopisanie do ewidencji</th></tr>
+            <tr><td>Brak dopasowania</td><td>w ewidencji nie ma operacji na tę kwotę brutto</td><td class="ok">tak</td></tr>
+            <tr><td>Wiele dopasowań</td><td>jedna faktura, ale kilka pasujących operacji w ewidencji</td><td class="bad">nie – uzupełnij ręcznie</td></tr>
+            <tr><td>Wiele faktur i wiele operacji na kwotę …</td><td>kilka faktur na tę samą kwotę, a w ewidencji są operacje na tę kwotę</td><td class="bad">nie – uzupełnij ręcznie</td></tr>
+            <tr><td>Wiele faktur, ale brak operacji na kwotę …</td><td>kilka faktur na tę samą kwotę i żadnej operacji na tę kwotę</td><td class="ok">tak, każda jako nowa operacja</td></tr>
+            <tr><td>Inne</td><td>np. nieczytelna data lub kwota faktury albo brak arkusza tego miesiąca w ewidencji</td><td class="bad">nie</td></tr>
+        </table>
+        <h3>Dopisywanie jako nowa operacja</h3>
+        <p>Faktury, które można dopisać, mają przełącznik w kolumnie <strong>Dodaj</strong>. Każda trafia do kolejnego
+            <strong>wolnego wiersza</strong> w arkuszu swojego miesiąca (wolny wiersz ma puste kolumny od B do Z – formuły się nie
+            liczą). Wpisywane są:</p>
+        <table>
+            <tr><th>Kolumna</th><th>Wartość</th></tr>
+            <tr><td><code>B</code></td><td>„T”</td></tr>
+            <tr><td><code>C</code></td><td>numer KSEF</td></tr>
+            <tr><td><code>D</code> (ZL)</td><td>to, co wpiszesz w kolumnie „ZL” (opcjonalnie)</td></tr>
+            <tr><td><code>E</code> firma</td><td>skrócona nazwa kontrahenta (kolejne człony, aż wyjdzie co najmniej 20 znaków, bez znaków specjalnych na początku)</td></tr>
+            <tr><td><code>F</code></td><td>data wystawienia z kolumny A listy księgowej</td></tr>
+            <tr><td><code>G</code></td><td>termin zapłaty z XML (lub data zapłaty „(auto)”, gdy opłacona i bez terminu)</td></tr>
+            <tr><td><code>H</code></td><td>data faktycznej zapłaty z XML (gdy <code>Zaplacono</code> = 1)</td></tr>
+            <tr><td><code>P</code>, <code>Q</code>, <code>R</code></td><td>zwykły koszt: netto, brutto, VAT</td></tr>
+            <tr><td><code>S</code>, <code>T</code>, <code>U</code></td><td>koszt paliwowy (zaznaczone „Paliwo”): netto, brutto, VAT</td></tr>
+            <tr><td><code>X</code>, <code>Y</code></td><td>„Inni robią zakupy” (zaznaczone): netto i VAT – bez brutto</td></tr>
+            <tr><td><code>Z</code> (uwagi)</td><td>to, co wpiszesz w kolumnie „Uwagi” (opcjonalnie)</td></tr>
+        </table>
+        <p>Kwoty wpisywane są jako wartości (zastępują formuły w tych komórkach). <strong>Brutto</strong> pochodzi z listy
+            księgowej, a <strong>netto i VAT z pliku XML</strong> faktury (suma znaczników <code>P_13_*</code> bez samego
+            <code>P_13_6</code> oraz suma <code>P_14_1 … P_14_5</code>).</p>
+        <h3>Kolumny w tabeli niedopasowanych</h3>
+        <ul>
+            <li><strong>Termin zapłaty</strong> i <strong>Termin faktycznej zapłaty</strong> – daty z XML (format DD.MM.RRRR).</li>
+            <li><strong>Paliwo</strong> i <strong>Inni robią zakupy</strong> – pola wyboru (wykluczają się wzajemnie) decydujące,
+                w jakich kolumnach pojawią się kwoty.</li>
+            <li><strong>Kontrahent</strong>, <strong>ZL</strong>, <strong>Uwagi</strong> – komórki edytowalne. Dwuklik otwiera
+                edycję, <kbd>Enter</kbd> lub kliknięcie poza komórką zapisuje, <kbd>Esc</kbd> anuluje. Wpisana nazwa kontrahenta
+                trafi do kolumny E, ZL do D, uwagi do Z.</li>
+        </ul>
+        <h3>Weryfikacja kwot</h3>
+        <p>W podglądzie zmian kolumna „Weryfikacja kwot” porównuje sumę netto i VAT z XML z kwotą brutto z listy:
+            <span class="ok">✓</span> – zgadza się, <span class="bad">✗</span> – nie zgadza się (z opisem). Gdy brakuje pliku
+            XML, netto i VAT pozostają puste i zobaczysz ✗ z przyczyną.</p>
+
+        <h2 id="juz">7. Faktury już w ewidencji</h2>
+        <p>Tabela jest domyślnie zwinięta – rozwiń ją, klikając nagłówek. Są w niej faktury, których numer KSEF występuje już w
+            kolumnie C ewidencji. Program niczego dla nich nie zmienia.</p>
+
+        <h2 id="zapis">8. Zapis do Excela i kopie zapasowe</h2>
+        <ol>
+            <li>Kliknij <strong>Uzupełnij ewidencję</strong> (na dole).</li>
+            <li>W oknie podglądu zobaczysz dwie tabele: zmiany w istniejących operacjach i nowe operacje. Każdą komórkę możesz
+                wyłączyć kliknięciem (niebieska = pominięta). Pierwsze kolumny nowych operacji są przypięte przy przewijaniu w poziomie.</li>
+            <li>Zaznacz „Przejrzałem zmiany i zgadzam się na ich zapisanie” i kliknij <strong>Zapisz zmiany w Excelu</strong>.</li>
+        </ol>
+        <ul>
+            <li><strong>Kopia zapasowa</strong> pliku ewidencji powstaje przed każdym zapisem, w folderze danych aplikacji. Otworzysz
+                go przyciskiem <strong>„Otwórz folder kopii zapasowych”</strong>.</li>
+            <li>Plik ewidencji <strong>nie może być otwarty w Excelu</strong> podczas zapisu.</li>
+            <li>Zapis zmienia tylko wskazane komórki – formatowanie i pozostała zawartość pliku zostają.</li>
+            <li>Jeśli brakuje wolnych wierszy dla nowych operacji, podgląd wyświetli ostrzeżenie – wyłącz część operacji, aby zapisać.</li>
+        </ul>
+
+        <h2 id="ustawienia">9. Ustawienia</h2>
+        <p>Obie opcje są pamiętane między uruchomieniami programu.</p>
+        <table>
+            <tr><th>Przełącznik</th><th>Działanie</th></tr>
+            <tr><td>Wczytaj listę, XML i PDF z jednego folderu</td><td>domyślnie włączony; patrz rozdział 2</td></tr>
+            <tr><td>Opłacone pozycje: tylko informacja „już jest, ale się różnią”</td><td>domyślnie włączony. Dla dopasowanych faktur opłaconych w XML
+                (<code>Zaplacono</code> = 1 i data zapłaty), które w ewidencji mają wypełnione G i H, pokazuje samą informację zamiast wyboru
+                między datą z ewidencji a z faktury. Po wyłączeniu wybór jest dostępny dla wszystkich pozycji.</td></tr>
+        </table>
+        <h3>Przyciski „Dopasuj” i „Wyczyść wszystko”</h3>
+        <p>Jeśli w programie są już wyniki, kliknięcie któregokolwiek z tych przycisków pyta o potwierdzenie:
+            „To skasuje obecną pracę. Czy na pewno chcesz kontynuować?”. <strong>OK</strong> wykonuje akcję,
+            <strong>Anuluj</strong> zamyka tylko okno pytania. <strong>Wyczyść wszystko</strong> przywraca stan początkowy
+            (czyści też wybór plików i folderów).</p>
+        <p>Program można uruchomić tylko raz – ponowne uruchomienie przywraca istniejące okno.</p>
+
+        <h2 id="problemy">10. Komunikaty i rozwiązywanie problemów</h2>
+        <table>
+            <tr><th>Komunikat / objaw</th><th>Co zrobić</th></tr>
+            <tr><td>„W wybranym folderze: brak …” / „znaleziono kilka …”</td><td>Sprawdź nazwy plików i folderów w wybranym folderze (ZAKUP, XML, PDF) albo wczytaj elementy osobno.</td></tr>
+            <tr><td>„Plik ewidencji zmienił się od czasu dopasowania. Uruchom „Dopasuj” ponownie.”</td><td>Ewidencja została zmieniona po dopasowaniu. Kliknij ponownie Dopasuj.</td></tr>
+            <tr><td>„Nie można zapisać pliku – zamknij go w Excelu i spróbuj ponownie.”</td><td>Zamknij ewidencję w Excelu.</td></tr>
+            <tr><td>Przycisk PDF nieaktywny</td><td>W folderze PDF nie ma pliku <code>[nr KSEF].pdf</code> dla tej faktury.</td></tr>
+            <tr><td>Netto/VAT puste, „✗ brak pliku …”</td><td>W folderze XML brakuje pliku <code>[nr KSEF].xml</code> albo jest nieprawidłowy.</td></tr>
+            <tr><td>W kolumnie Lp „brak” (czerwone)</td><td>W arkuszu nie ma już wolnych wierszy. Wyłącz tę operację albo przygotuj więcej wolnych wierszy w ewidencji.</td></tr>
+            <tr><td>Faktura niedopasowana z powodem „Inne”</td><td>Sprawdź, czy data i kwota na liście księgowej są poprawne oraz czy ewidencja ma arkusz dla tego miesiąca.</td></tr>
+        </table>
+        <p style="color: var(--muted); margin-top: 28px;">Wersja programu jest widoczna w prawym górnym rogu głównego okna.</p>
+    </div>
+</body>
+
+</html>

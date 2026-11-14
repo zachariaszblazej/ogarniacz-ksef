@@ -10,4 +10,5 @@ contextBridge.exposeInMainWorld('api', {
     openBackups: () => ipcRenderer.invoke('open-backups'),
     reset: () => ipcRenderer.invoke('reset'),
     version: () => ipcRenderer.invoke('version'),
+    openHelp: () => ipcRenderer.invoke('open-help'),
 });
