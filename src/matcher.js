@@ -282,10 +282,11 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         // wszystkie faktury to koszty; ujemne brutto (korekty) szukamy ze znakiem minus
         const ops = inv.cents !== null && ledger[month] ? (ledger[month].koszt.get(inv.cents) || []) : [];
         if (multi) {
+            const amt = (inv.cents / 100).toFixed(2).replace('.', ','); // z przecinkiem dziesiętnym
             if (ops.length) {
-                reason = 'Wiele faktur i wiele operacji na tę kwotę';
+                reason = `Wiele faktur i wiele operacji na kwotę ${amt}`;
             } else {
-                reason = 'Wiele faktur, ale brak operacji na tę kwotę';
+                reason = `Wiele faktur, ale brak operacji na kwotę ${amt}`;
                 noMatch = Boolean(ledger[month]); // dopisujemy jako nowe operacje (wymaga arkusza miesiąca)
             }
         } else if (inv.cents !== null && ledger[month]) {
