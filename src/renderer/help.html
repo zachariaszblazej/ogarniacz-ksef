@@ -182,8 +182,23 @@
             brutto). Dlatego dla każdej niedopasowanej faktury, niezależnie od powodu, program sprawdza w arkuszu jej miesiąca, czy są
             jeszcze <strong>niedopasowane, nieksefowe operacje</strong> (koszty zwykłe, paliwowe i „Inni robią zakupy”), których kwota
             brutto różni się o 1 grosz więcej lub mniej. Jeśli tak, w kolumnie <strong>PDF</strong> pojawia się czerwona ikona
-            <strong>!!!</strong>. Po najechaniu kursorem zobaczysz listę wszystkich takich operacji – dla każdej numer Lp, firmę oraz ZL i uwagi (jeśli są wpisane) – warto je sprawdzić, zanim
-            dopiszesz fakturę jako nową operację. Operacje użyte już przy dopasowaniu innych faktur nie są brane pod uwagę.</p>
+            <strong>!!!</strong>. Po najechaniu kursorem pojawia się informacja, że są takie operacje – <strong>kliknij ikonę</strong>,
+            aby zobaczyć ich listę. Operacje użyte już przy dopasowaniu innych faktur nie są brane pod uwagę.</p>
+        <h3>Ręczne dopasowanie faktury do operacji</h3>
+        <ol>
+            <li>Kliknij ikonę <strong>!!!</strong> przy niedopasowanej fakturze. Otworzy się okno z listą operacji. Dla każdej widać:
+                <strong>Lp, ZL, Firma, Kwota brutto, Uwagi</strong>.</li>
+            <li>Zaznacz dokładnie jedną operację (na początku żadna nie jest wybrana). Przycisk <strong>Zatwierdź</strong> jest nieaktywny,
+                dopóki nic nie wybierzesz. Okno zamkniesz krzyżykiem (<strong>✕</strong>) lub klawiszem <kbd>Esc</kbd>.</li>
+            <li>Po kliknięciu <strong>Zatwierdź</strong> program zapyta: „Czy chcesz dopasować fakturę do operacji Lp …, Firma …?”.
+                <strong>Nie</strong> zamyka tylko to pytanie, <strong>Tak</strong> dopasowuje fakturę.</li>
+            <li>Faktura trafia na <strong>koniec listy dopasowanych</strong> i jest dalej traktowana jak każda dopasowana (B, C, F, G, H – patrz
+                rozdział 5). Znika z niedopasowanych, a jej ewentualne dopisanie jako nowej operacji zostaje wyłączone.
+                Wybrana operacja nie jest już proponowana innym fakturom.</li>
+        </ol>
+        <p>Ręcznie dopasowana faktura ma w kolumnie PDF ikonę <strong>!!!</strong>. Kliknięcie jej pyta: „Czy chcesz przenieść fakturę z
+            powrotem do niedopasowanych?”. <strong>Tak</strong> usuwa ją z dopasowanych i przywraca do niedopasowanych (z dotychczasowym ustawieniem
+            dopisania), <strong>Nie</strong> niczego nie zmienia.</p>
         <h3>Dopisywanie jako nowa operacja</h3>
         <p>Faktury, które można dopisać, mają przełącznik w kolumnie <strong>Dodaj</strong>. Każda trafia do kolejnego
             <strong>wolnego wiersza</strong> w arkuszu swojego miesiąca (wolny wiersz ma puste kolumny od B do Z – formuły się nie

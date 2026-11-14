@@ -220,6 +220,34 @@
             </div>
         </div>
     </div>
+    <div id="near-modal" class="overlay hidden">
+        <div class="dialog mid" role="dialog" aria-modal="true">
+            <div class="dialog-head">
+                <h3>Niedopasowane operacje różniące się o 1 grosz od faktury</h3>
+                <button id="nm-close" class="ghost icon-btn" aria-label="Zamknij" title="Zamknij">✕</button>
+            </div>
+            <p id="nm-sub" class="warning"></p>
+            <div class="scroll tall">
+                <table>
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Lp</th>
+                            <th>ZL</th>
+                            <th>Firma</th>
+                            <th class="num">Kwota brutto</th>
+                            <th>Uwagi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nm-body"></tbody>
+                </table>
+            </div>
+            <div class="dialog-actions">
+                <button id="nm-ok" class="primary" disabled>Zatwierdź</button>
+            </div>
+        </div>
+    </div>
+
     <div id="confirm" class="overlay hidden">
         <div class="dialog small" role="alertdialog" aria-modal="true">
             <p id="cf-text"></p>

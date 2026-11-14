@@ -251,6 +251,14 @@ function makePlanItem(inv, e, dates) {
     return item;
 }
 
+// Rekord faktury w tabeli dopasowanych (kwota brutto pochodzi z ewidencji)
+function makeMatchedRecord(inv, e) {
+    return {
+        lp: e.lp, amount: (e.gross / 100).toFixed(2), date: inv.date,
+        ksef: inv.ksef, contractor: inv.contractor, firma: e.firma, uwagi: e.uwagi,
+    };
+}
+
 function match(invoices, ledger, amountsFor, dueFor, paidFor) {
     const ledgerC = Object.values(ledger).flatMap(d => d.cTexts).join('\n');
     // faktura jest już w ewidencji, gdy jej numer KSEF występuje w kolumnie "nr FV"
@@ -262,7 +270,8 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
     }
     const matched = [], unmatched = [], already = [], plan = [], additions = [];
     const usedOps = new Set(); // operacje użyte w dopasowaniach: "arkusz:wiersz"
-    const unmatchedMeta = []; // { rec, month, cents } - do wykrywania różnic o 1 grosz
+    const unmatchedMeta = []; // { rec, month, cents, inv, gDate, paid } - do wykrywania różnic o 1 grosz
+    const manual = []; // dane do ręcznego dopasowania niedopasowanych faktur (tylko dla procesu głównego)
     const free = {};
     for (const d of Object.values(ledger)) free[d.sheet] = d.freeRows;
     for (const inv of invoices) {
@@ -300,10 +309,7 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         if (found.length === 1) {
             plan.push(makePlanItem(inv, found[0], { g: gDate, h: paid }));
             usedOps.add(found[0].sheet + ':' + found[0].row);
-            matched.push({
-                lp: found[0].lp, amount: (found[0].gross / 100).toFixed(2), date: inv.date,
-                ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma, uwagi: found[0].uwagi,
-            });
+            matched.push(makeMatchedRecord(inv, found[0]));
         } else {
             const rec = {
                 date: inv.date, ksef: inv.ksef, contractor: firstWord(inv.contractor),
@@ -353,23 +359,29 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
                 }
             }
             unmatched.push(rec);
-            unmatchedMeta.push({ rec, month, cents: inv.cents });
+            unmatchedMeta.push({ rec, month, cents: inv.cents, inv, gDate, paid });
         }
     }
     // Faktura mogła różnić się o 1 grosz od operacji w ewidencji (różne metody liczenia netto/VAT/brutto):
     // zbieramy Lp i firmę niedopasowanych, nieksefowych operacji z tego miesiąca, których brutto różni się o ±1 grosz.
-    for (const { rec, month, cents } of unmatchedMeta) {
+    for (const { rec, month, cents, inv, gDate, paid } of unmatchedMeta) {
         if (cents === null || !ledger[month]) continue;
         const near = new Map();
         for (const delta of [-1, 1]) {
             for (const e of ledger[month].koszt.get(cents + delta) || []) {
                 const key = e.sheet + ':' + e.row;
-                if (!usedOps.has(key)) near.set(key, { lp: e.lp, firma: String(e.firma ?? '').trim(), zl: e.zl, uwagi: e.uwagi });
+                if (!usedOps.has(key)) near.set(key, e);
             }
         }
-        if (near.size) rec.nearOps = [...near.values()].sort((a, b) => String(a.lp).localeCompare(String(b.lp), 'pl', { numeric: true }));
+        if (near.size) {
+            rec.nearOps = [...near.entries()].map(([key, e]) => ({
+                key, lp: e.lp, zl: e.zl, firma: String(e.firma ?? '').trim(), gross: e.gross, uwagi: e.uwagi,
+            })).sort((a, b) => String(a.lp).localeCompare(String(b.lp), 'pl', { numeric: true }));
+            rec.nearId = manual.length;
+            manual.push({ inv, gDate, paid, entries: near }); // entries: Map klucz -> wpis ewidencji
+        }
     }
-    return { matched, unmatched, already, plan, additions, free };
+    return { matched, unmatched, already, plan, additions, free, manual };
 }
 
 async function run(invoicesPath, ledgerPath, xmlDir, pdfDir) {
@@ -383,4 +395,4 @@ async function run(invoicesPath, ledgerPath, xmlDir, pdfDir) {
     return { ...result, total: invoices.length, months };
 }
 
-module.exports = { run, toCents, match, netString };
+module.exports = { run, toCents, match, netString, makePlanItem, makeMatchedRecord };

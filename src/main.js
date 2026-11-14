@@ -1,7 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron');
 const fs = require('fs');
 const path = require('path');
-const { run } = require('./matcher');
+const { run, makePlanItem, makeMatchedRecord } = require('./matcher');
 const { applyPlan } = require('./writer');
 const { pdfPath } = require('./pdfInvoice');
 const { scanBundle } = require('./bundle');
@@ -87,9 +87,9 @@ ipcMain.handle('open-pdf', async (_e, ksef) => {
 ipcMain.handle('match', async (_e, invoicesPath, ledgerPath, xmlDir, pdfFolder) => {
     try {
         const mtimeMs = fs.statSync(ledgerPath).mtimeMs;
-        const result = await run(invoicesPath, ledgerPath, xmlDir, pdfFolder);
+        const { manual, ...result } = await run(invoicesPath, ledgerPath, xmlDir, pdfFolder);
         pdfDir = pdfFolder;
-        last = { ledgerPath, mtimeMs, plan: result.plan, additions: result.additions, free: result.free };
+        last = { ledgerPath, mtimeMs, plan: result.plan, additions: result.additions, free: result.free, manual, manualUsed: new Map() };
         return { ok: true, result };
     } catch (e) {
         return { ok: false, error: e.message };
@@ -97,6 +97,40 @@ ipcMain.handle('match', async (_e, invoicesPath, ledgerPath, xmlDir, pdfFolder) 
 });
 
 const ADD_CELLS = ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'net', 'gross', 'vat', 'z'];
+
+// Ręczne dopasowanie niedopasowanej faktury do wskazanej operacji: powstaje zwykły plan zmian jak przy dopasowaniu automatycznym
+ipcMain.handle('manual-match', (_e, nearId, key) => {
+    try {
+        if (!last || !last.manual) throw new Error('Najpierw uruchom dopasowanie.');
+        const m = Number.isInteger(nearId) ? last.manual[nearId] : null;
+        const entry = m && typeof key === 'string' ? m.entries.get(key) : null;
+        if (!entry) throw new Error('Nie znaleziono wskazanej operacji.');
+        for (const u of last.manualUsed.values()) {
+            if (u.key === key) throw new Error('Ta operacja jest już dopasowana do innej faktury.');
+            if (u.nearId === nearId) throw new Error('Ta faktura jest już dopasowana ręcznie.');
+        }
+        const pdf = pdfPath(pdfDir, m.inv.ksef) !== null;
+        const item = { ...makePlanItem(m.inv, entry, { g: m.gDate, h: m.paid }), pdf };
+        const planId = last.plan.length;
+        last.plan.push(item);
+        last.manualUsed.set(planId, { key, nearId });
+        return { ok: true, planId, item, record: { ...makeMatchedRecord(m.inv, entry), pdf } };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
+
+// Cofnięcie ręcznego dopasowania: pozycja planu jest oznaczana jako usunięta i nie zostanie zapisana
+ipcMain.handle('manual-unmatch', (_e, planId) => {
+    try {
+        if (!last || !Number.isInteger(planId) || !last.manualUsed.has(planId)) throw new Error('To nie jest ręczne dopasowanie.');
+        last.plan[planId].removed = true;
+        last.manualUsed.delete(planId);
+        return { ok: true };
+    } catch (e) {
+        return { ok: false, error: e.message };
+    }
+});
 
 // Przypisuje wybrane nowe operacje do kolejnych wolnych wierszy (osobno dla każdego arkusza).
 // To samo robi renderer na potrzeby podglądu - tu jest wersja rozstrzygająca.
@@ -125,7 +159,7 @@ ipcMain.handle('apply', async (_e, selection) => {
         const filtered = [];
         for (const s of Array.isArray(selection?.changes) ? selection.changes : []) {
             const item = Number.isInteger(s?.id) ? last.plan[s.id] : null;
-            if (!item || seen.has(s.id) || !Array.isArray(s.cells)) continue;
+            if (!item || item.removed || seen.has(s.id) || !Array.isArray(s.cells)) continue;
             seen.add(s.id);
             const clone = { ...item };
             for (const c of ['b', 'c', 'f', 'g', 'h']) {

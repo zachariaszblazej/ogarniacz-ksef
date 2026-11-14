@@ -375,6 +375,29 @@ tbody tr:hover {
     max-width: 100%;
 }
 
+.dialog.mid {
+    width: min(900px, 100%);
+}
+
+.dialog-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+button.icon-btn {
+    margin-top: 0;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    line-height: 1;
+}
+
+tr.pick-row {
+    cursor: pointer;
+}
+
 .dialog .warning {
     color: var(--muted);
 }
@@ -522,7 +545,7 @@ td.editable {
     color: #fff;
     font-weight: 800;
     letter-spacing: 1px;
-    cursor: help;
+    cursor: pointer;
 }
 
 .seg.inv.on {

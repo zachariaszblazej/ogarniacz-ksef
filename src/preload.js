@@ -11,4 +11,6 @@ contextBridge.exposeInMainWorld('api', {
     reset: () => ipcRenderer.invoke('reset'),
     version: () => ipcRenderer.invoke('version'),
     openHelp: () => ipcRenderer.invoke('open-help'),
+    manualMatch: (nearId, key) => ipcRenderer.invoke('manual-match', nearId, key),
+    manualUnmatch: planId => ipcRenderer.invoke('manual-unmatch', planId),
 });

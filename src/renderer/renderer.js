@@ -7,6 +7,8 @@ let matchOn = [];       // przełączniki operacji
 let cellOff = new Set(); // wyłączone komórki: "id:b" / "id:c" / "id:f"
 let pickInv = new Set(); // G/H, w których wybrano datę z faktury zamiast tej z ewidencji: "id:g" / "id:h"
 let dateCells = []; // komórki G/H tabeli dopasowanych: { td, i, col } - do przerysowania po zmianie ustawienia
+let matchedRecs = [];   // rekordy tabeli dopasowanych (indeks = id w fullPlan); ręcznie dopasowane mają manual: true
+let unmatchedRecs = []; // rekordy tabeli niedopasowanych; przeniesione do dopasowanych mają movedTo (id w fullPlan)
 const CELLS = ['b', 'c', 'f', 'g', 'h'];
 
 // Nowe operacje (z faktur niezmatchowanych z powodu braku matchy)
@@ -139,10 +141,12 @@ function showMsg(text, info) {
     m.className = 'msg' + (info ? ' info' : '');
 }
 
-// Okno potwierdzenia: OK -> true, Anuluj lub Esc -> false (zamyka tylko to okno)
-function askConfirm(text) {
+// Okno potwierdzenia: pierwszy przycisk -> true, drugi lub Esc -> false (zamyka tylko to okno)
+function askConfirm(text, okLabel = 'OK', cancelLabel = 'Anuluj') {
     return new Promise(resolve => {
         $('cf-text').textContent = text;
+        $('cf-ok').textContent = okLabel;
+        $('cf-cancel').textContent = cancelLabel;
         $('confirm').classList.remove('hidden');
         $('cf-cancel').focus(); // bezpieczniejszy domyślny wybór przy kasowaniu pracy
         const onKey = e => { if (e.key === 'Escape') close(false); };
@@ -189,8 +193,10 @@ $('run').onclick = async () => {
     addCellOff = new Set();
     if (!months.length) showMsg('W ewidencji nie znaleziono arkuszy z nazwami miesięcy.', true);
 
-    renderMatched(matched);
-    renderUnmatched(unmatched);
+    matchedRecs = matched;
+    unmatchedRecs = unmatched;
+    renderMatched();
+    renderUnmatched();
     fill($('t-already'), already, ['pdf', 'date', 'ksef', 'contractor', 'amount'], 'amount');
     $('c-already').textContent = 'Liczba rekordów: ' + already.length;
     $('s-already').textContent = already.length;
@@ -202,12 +208,12 @@ $('run').onclick = async () => {
 };
 
 // ---- Przełącznik (switch) ----
-function makeSwitch(title, onChange) {
+function makeSwitch(title, onChange, checked = true) {
     const sw = document.createElement('label');
     sw.className = 'switch';
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.checked = true;
+    cb.checked = checked;
     cb.title = title;
     cb.onchange = () => onChange(cb.checked);
     const knob = document.createElement('span');
@@ -231,19 +237,122 @@ function showTip(text, e) {
 }
 const hideTip = () => cursorTip.classList.add('hidden');
 
-// Ostrzeżenie przy niedopasowanej fakturze: są operacje różniące się o 1 grosz
-function nearWarning(ops) {
+// Podpowiedź przy kursorze dla klikalnej ikony "!!!"
+function bindTip(el, text) {
+    el.setAttribute('aria-label', text);
+    el.addEventListener('mouseenter', e => showTip(text, e));
+    el.addEventListener('mousemove', moveTip);
+    el.addEventListener('mouseleave', hideTip);
+}
+
+const usedOpKeys = () => new Set(matchedRecs.filter(r => r.manual && !r.removed).map(r => r.opKey));
+// operacje różniące się o 1 grosz, które nie zostały już ręcznie dopasowane do innej faktury
+function availableNear(rec) {
+    const used = usedOpKeys();
+    return (rec.nearOps || []).filter(o => !used.has(o.key));
+}
+
+// Ostrzeżenie przy niedopasowanej fakturze: są operacje różniące się o 1 grosz; kliknięcie otwiera listę do wyboru
+function nearWarning(rec) {
+    if (!availableNear(rec).length) return null;
     const w = document.createElement('span');
     w.className = 'near-warn';
     w.textContent = '!!!';
-    const lines = ops.map(o => [`Lp ${o.lp}${o.firma ? ' – ' + o.firma : ''}`, o.zl && `ZL: ${o.zl}`, o.uwagi && `Uwagi: ${o.uwagi}`]
-        .filter(Boolean).join(' | '));
-    const text = `Niedopasowane operacje różniące się o 1 grosz od tej faktury:\n${lines.join('\n')}`;
-    w.setAttribute('aria-label', text);
-    w.addEventListener('mouseenter', e => showTip(text, e));
-    w.addEventListener('mousemove', moveTip);
-    w.addEventListener('mouseleave', hideTip);
+    bindTip(w, 'Są niedopasowane operacje różniące się o 1 grosz od tej faktury: Kliknij, aby dowiedzieć się więcej');
+    w.onclick = () => openNearModal(rec);
     return w;
+}
+
+// Znacznik ręcznie dopasowanej faktury w tabeli dopasowanych; kliknięcie cofa dopasowanie
+function manualMarker(planId) {
+    const w = document.createElement('span');
+    w.className = 'near-warn';
+    w.textContent = '!!!';
+    bindTip(w, 'Dopasowana ręcznie. Kliknij, aby przenieść z powrotem do niedopasowanych');
+    w.onclick = () => { hideTip(); unmatchManual(planId); };
+    return w;
+}
+
+// ---- Okno z listą potencjalnych operacji dla faktury ----
+let nearRec = null; // faktura, dla której otwarto okno
+let nearSel = null; // wybrana operacja (null = nic nie wybrano)
+
+function openNearModal(rec) {
+    hideTip();
+    nearRec = rec;
+    nearSel = null;
+    $('nm-sub').textContent = `Faktura ${rec.ksef} – kwota brutto ${rec.amount}. Wybierz dokładnie jedną operację.`;
+    const body = $('nm-body');
+    body.replaceChildren();
+    for (const o of availableNear(rec)) {
+        const tr = body.insertRow();
+        tr.className = 'pick-row';
+        const radio = document.createElement('input');
+        radio.type = 'radio';
+        radio.name = 'nm-op';
+        radio.onchange = () => { nearSel = o; $('nm-ok').disabled = false; };
+        tr.insertCell().appendChild(radio);
+        tr.onclick = () => { radio.checked = true; radio.onchange(); };
+        for (const [v, cls] of [[o.lp, ''], [o.zl, ''], [o.firma, ''], [(o.gross / 100).toFixed(2), 'num'], [o.uwagi, '']]) {
+            const td = tr.insertCell();
+            td.textContent = v ?? '';
+            if (cls) td.className = cls;
+        }
+    }
+    $('nm-ok').disabled = true;
+    $('near-modal').classList.remove('hidden');
+}
+
+function closeNearModal() {
+    $('near-modal').classList.add('hidden');
+    nearRec = null;
+    nearSel = null;
+}
+
+$('nm-close').onclick = closeNearModal;
+document.addEventListener('keydown', e => {
+    // Esc zamyka okno z listą, chyba że właśnie widoczne jest okno potwierdzenia (to zamyka swój własny handler)
+    if (e.key === 'Escape' && !$('near-modal').classList.contains('hidden') && $('confirm').classList.contains('hidden')) closeNearModal();
+});
+
+$('nm-ok').onclick = async () => {
+    if (!nearSel || !nearRec) return;
+    const rec = nearRec;
+    const op = nearSel;
+    const ok = await askConfirm(`Czy chcesz dopasować fakturę do operacji Lp ${op.lp}, Firma ${op.firma || '—'}?`, 'Tak', 'Nie');
+    if (!ok) return; // Nie: zamyka tylko okno potwierdzenia
+    const res = await api.manualMatch(rec.nearId, op.key);
+    closeNearModal();
+    if (!res.ok) return showMsg('Błąd: ' + res.error);
+    if (res.planId !== fullPlan.length) return showMsg('Błąd: niespójny stan programu – uruchom „Dopasuj” ponownie.');
+    // faktura trafia na koniec listy dopasowanych jak zwykła dopasowana, a z niedopasowanych znika
+    fullPlan.push(res.item);
+    matchOn.push(true);
+    matchedRecs.push({ ...res.record, manual: true, opKey: op.key, fromRec: rec });
+    rec.movedTo = res.planId;
+    if (rec.addId !== undefined) {
+        rec.prevAdd = addOn[rec.addId];
+        addOn[rec.addId] = false; // nie dopisujemy jej jako nowej operacji
+    }
+    renderMatched();
+    renderUnmatched();
+    refreshFillState();
+};
+
+// Cofnięcie ręcznego dopasowania: faktura wraca do niedopasowanych
+async function unmatchManual(planId) {
+    if (!(await askConfirm('Czy chcesz przenieść fakturę z powrotem do niedopasowanych?', 'Tak', 'Nie'))) return;
+    const res = await api.manualUnmatch(planId);
+    if (!res.ok) return showMsg('Błąd: ' + res.error);
+    const m = matchedRecs[planId];
+    m.removed = true;
+    matchOn[planId] = false;
+    const rec = m.fromRec;
+    delete rec.movedTo;
+    if (rec.addId !== undefined) addOn[rec.addId] = rec.prevAdd ?? true;
+    renderMatched();
+    renderUnmatched();
+    refreshFillState();
 }
 
 // ---- Lista zmatchowanych: przełączniki aktywności ----
@@ -297,28 +406,34 @@ function dateStatusCell(td, p, id, col) {
     }
 }
 
-function renderMatched(matched) {
+function renderMatched() {
     const tbody = $('t-ok');
     dateCells = [];
     tbody.replaceChildren();
-    if (!matched.length) {
+    const rows = matchedRecs.map((r, i) => ({ r, i })).filter(x => !x.r.removed);
+    if (!rows.length) {
         const td = tbody.insertRow().insertCell();
         td.colSpan = 11;
         td.className = 'empty';
         td.textContent = 'Brak rekordów';
         return;
     }
-    matched.forEach((r, i) => {
+    rows.forEach(({ r, i }) => {
         const tr = tbody.insertRow();
         tr.dataset.idx = i;
+        tr.classList.toggle('off', !matchOn[i]);
         tr.insertCell().appendChild(makeSwitch('Uwzględnij tę operację w zmianach ewidencji', on => {
             matchOn[i] = on;
             tr.classList.toggle('off', !on);
             refreshFillState();
-        }));
+        }, matchOn[i]));
         for (const k of ['pdf', 'date', 'lp', 'ksef', 'contractor', 'firma', 'gTerm', 'hPaid', 'amount', 'uwagi']) {
             const td = tr.insertCell();
-            if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
+            if (k === 'pdf') {
+                td.appendChild(pdfButton(r));
+                if (r.manual) td.append(manualMarker(i));
+                continue;
+            }
             if (k === 'gTerm' || k === 'hPaid') {
                 const col = k === 'gTerm' ? 'g' : 'h';
                 dateCells.push({ td, i, col });
@@ -374,7 +489,8 @@ function makeEditable(td, store, id, base, title) {
 }
 
 // ---- Lista niezmatchowanych: przełącznik tylko dla faktur bez matchu (do dopisania) ----
-function renderUnmatched(unmatched) {
+function renderUnmatched() {
+    const unmatched = unmatchedRecs.filter(r => r.movedTo === undefined);
     const tbody = $('t-bad');
     tbody.replaceChildren();
     if (!unmatched.length) {
@@ -388,11 +504,12 @@ function renderUnmatched(unmatched) {
         const tr = tbody.insertRow();
         const first = tr.insertCell();
         if (r.addId !== undefined) {
+            tr.classList.toggle('off', !addOn[r.addId]);
             first.appendChild(makeSwitch('Dopisz tę fakturę jako nową operację w ewidencji', on => {
                 addOn[r.addId] = on;
                 tr.classList.toggle('off', !on);
                 refreshFillState();
-            }));
+            }, addOn[r.addId]));
         } else if (r.alreadyIn) {
             first.textContent = 'już w ewidencji';
             first.className = 'same';
@@ -403,14 +520,15 @@ function renderUnmatched(unmatched) {
             const td = tr.insertCell();
             if (k === 'pdf') {
                 td.appendChild(pdfButton(r));
-                if (r.nearOps && r.nearOps.length) td.append(nearWarning(r.nearOps));
+                const near = nearWarning(r);
+                if (near) td.append(near);
                 continue;
             }
             if (k === 'fuel' || k === 'inni') {
                 if (r.canFuel) {
                     const cb = document.createElement('input');
                     cb.type = 'checkbox';
-                    cb.checked = false;
+                    cb.checked = fuelOn[r.addId] === k;
                     cb.title = k === 'fuel'
                         ? 'Faktura paliwowa: netto, brutto i VAT trafią do kolumn S, T, U zamiast P, Q, R'
                         : 'Inni robią zakupy: netto i VAT trafią do kolumn X, Y (bez brutto)';
@@ -482,15 +600,19 @@ function effectiveAdds() {
 }
 
 function refreshFillState() {
-    const matchedCount = fullPlan.length;
-    const active = matchOn.filter(Boolean).length;
+    const activeIds = fullPlan.map((_, i) => i).filter(i => !(matchedRecs[i] && matchedRecs[i].removed));
+    const matchedCount = activeIds.length;
+    const active = activeIds.filter(i => matchOn[i]).length;
     const eff = effectivePlan();
     const newCount = addOn.filter(Boolean).length;
+    const badCount = unmatchedRecs.filter(r => r.movedTo === undefined).length;
     $('c-ok').textContent = `Liczba rekordów: ${matchedCount} (aktywnych: ${active})`;
     $('s-ok').textContent = matchedCount;
+    $('c-bad').textContent = 'Liczba rekordów: ' + badCount;
+    $('s-bad').textContent = badCount;
     $('fill').disabled = eff.length === 0 && effectiveAdds().length === 0;
     $('fill-info').textContent = matchedCount === 0 ? ''
-        : fullPlan.every(p => !p.hasChanges) && eff.length === 0 ? 'Ewidencja jest już uzupełniona – brak zmian do zapisania.'
+        : activeIds.every(i => !fullPlan[i].hasChanges) && eff.length === 0 ? 'Ewidencja jest już uzupełniona – brak zmian do zapisania.'
             : `Do zmiany: ${eff.length} z ${matchedCount} operacji.`;
     $('new-info').textContent = `Nowych operacji: ${newCount}`;
 }
@@ -727,6 +849,8 @@ $('reset').onclick = async () => {
     $('fill').disabled = true;
     $('fill-info').textContent = '';
     $('new-info').textContent = '';
+    matchedRecs = [];
+    unmatchedRecs = [];
     $('m-body').replaceChildren();
     $('m-new-body').replaceChildren();
     $('m-ack').checked = false;
