@@ -502,6 +502,20 @@ td.editable {
     font-weight: 600;
 }
 
+.cursor-tip {
+    position: fixed;
+    z-index: 20;
+    pointer-events: none;
+    padding: 1px 6px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .4px;
+}
+
 td.editable:hover {
     background: rgba(224, 164, 88, .28);
     box-shadow: inset 0 0 0 1px var(--accent);

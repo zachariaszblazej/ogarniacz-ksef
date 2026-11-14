@@ -215,6 +215,21 @@ function makeSwitch(title, onChange) {
     return sw;
 }
 
+// Etykieta przy kursorze (w prawym górnym rogu): FAKTURA albo EWIDENCJA nad datą do wyboru
+const cursorTip = document.createElement('div');
+cursorTip.className = 'cursor-tip hidden';
+document.body.append(cursorTip);
+function moveTip(e) {
+    cursorTip.style.left = Math.min(e.clientX + 12, window.innerWidth - cursorTip.offsetWidth - 4) + 'px';
+    cursorTip.style.top = Math.max(e.clientY - 26, 4) + 'px';
+}
+function showTip(text, e) {
+    cursorTip.textContent = text;
+    cursorTip.classList.remove('hidden');
+    moveTip(e);
+}
+const hideTip = () => cursorTip.classList.add('hidden');
+
 // ---- Lista zmatchowanych: przełączniki aktywności ----
 // Data z XML w kolumnie G/H: do pustej komórki wpisujemy ją sami; gdy w ewidencji coś już jest i się różni,
 // użytkownik przełącza między wartością z ewidencji (domyślnie) a wartością z faktury (wyróżniona)
@@ -234,7 +249,10 @@ function dateStatusCell(td, p, id, col) {
             const s = document.createElement('span');
             s.className = 'seg' + (fromInvoice ? ' inv' : '');
             s.textContent = text;
-            s.title = title;
+            s.setAttribute('aria-label', title);
+            s.addEventListener('mouseenter', e => showTip(fromInvoice ? 'FAKTURA' : 'EWIDENCJA', e));
+            s.addEventListener('mousemove', moveTip);
+            s.addEventListener('mouseleave', hideTip);
             s.onclick = () => {
                 if (fromInvoice) pickInv.add(key); else pickInv.delete(key);
                 paint();
