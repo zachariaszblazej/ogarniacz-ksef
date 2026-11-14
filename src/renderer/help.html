@@ -177,6 +177,13 @@
             <tr><td>Wiele faktur, ale brak operacji na kwotę …</td><td>kilka faktur na tę samą kwotę i żadnej operacji na tę kwotę</td><td class="ok">tak, każda jako nowa operacja</td></tr>
             <tr><td>Inne</td><td>np. nieczytelna data lub kwota faktury albo brak arkusza tego miesiąca w ewidencji</td><td class="bad">nie</td></tr>
         </table>
+        <h3>Ostrzeżenie „!!!” – różnica o 1 grosz</h3>
+        <p>Ta sama faktura w różnych źródłach bywa policzona z różnicą 1 grosza w kwocie brutto (różne sposoby liczenia netto, VAT i
+            brutto). Dlatego dla każdej niedopasowanej faktury, niezależnie od powodu, program sprawdza w arkuszu jej miesiąca, czy są
+            jeszcze <strong>niedopasowane, nieksefowe operacje</strong> (koszty zwykłe, paliwowe i „Inni robią zakupy”), których kwota
+            brutto różni się o 1 grosz więcej lub mniej. Jeśli tak, w kolumnie <strong>PDF</strong> pojawia się czerwona ikona
+            <strong>!!!</strong>. Po najechaniu kursorem zobaczysz listę wszystkich takich operacji – dla każdej numer Lp i firmę – warto je sprawdzić, zanim
+            dopiszesz fakturę jako nową operację. Operacje użyte już przy dopasowaniu innych faktur nie są brane pod uwagę.</p>
         <h3>Dopisywanie jako nowa operacja</h3>
         <p>Faktury, które można dopisać, mają przełącznik w kolumnie <strong>Dodaj</strong>. Każda trafia do kolejnego
             <strong>wolnego wiersza</strong> w arkuszu swojego miesiąca (wolny wiersz ma puste kolumny od B do Z – formuły się nie

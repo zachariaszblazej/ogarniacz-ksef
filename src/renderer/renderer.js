@@ -231,6 +231,20 @@ function showTip(text, e) {
 }
 const hideTip = () => cursorTip.classList.add('hidden');
 
+// Ostrzeżenie przy niedopasowanej fakturze: są operacje różniące się o 1 grosz
+function nearWarning(ops) {
+    const w = document.createElement('span');
+    w.className = 'near-warn';
+    w.textContent = '!!!';
+    const lines = ops.map(o => `Lp ${o.lp}${o.firma ? ' – ' + o.firma : ''}`);
+    const text = `Niedopasowane operacje różniące się o 1 grosz od tej faktury:\n${lines.join('\n')}`;
+    w.setAttribute('aria-label', text);
+    w.addEventListener('mouseenter', e => showTip(text, e));
+    w.addEventListener('mousemove', moveTip);
+    w.addEventListener('mouseleave', hideTip);
+    return w;
+}
+
 // ---- Lista zmatchowanych: przełączniki aktywności ----
 // Data z XML w kolumnie G/H: do pustej komórki wpisujemy ją sami; gdy w ewidencji coś już jest i się różni,
 // użytkownik przełącza między wartością z ewidencji (domyślnie) a wartością z faktury (wyróżniona)
@@ -386,7 +400,11 @@ function renderUnmatched(unmatched) {
         const kindBoxes = {};
         for (const k of ['pdf', 'date', 'zl', 'ksef', 'contractor', 'due', 'paid', 'amount', 'fuel', 'inni', 'uwagi', 'reason']) {
             const td = tr.insertCell();
-            if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
+            if (k === 'pdf') {
+                td.appendChild(pdfButton(r));
+                if (r.nearOps && r.nearOps.length) td.append(nearWarning(r.nearOps));
+                continue;
+            }
             if (k === 'fuel' || k === 'inni') {
                 if (r.canFuel) {
                     const cb = document.createElement('input');

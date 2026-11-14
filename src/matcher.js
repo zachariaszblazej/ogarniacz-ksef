@@ -260,6 +260,8 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         if (i.cents !== null && !isAlready(i)) counts.set(i.cents, (counts.get(i.cents) || 0) + 1);
     }
     const matched = [], unmatched = [], already = [], plan = [], additions = [];
+    const usedOps = new Set(); // operacje użyte w dopasowaniach: "arkusz:wiersz"
+    const unmatchedMeta = []; // { rec, month, cents } - do wykrywania różnic o 1 grosz
     const free = {};
     for (const d of Object.values(ledger)) free[d.sheet] = d.freeRows;
     for (const inv of invoices) {
@@ -296,6 +298,7 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         }
         if (found.length === 1) {
             plan.push(makePlanItem(inv, found[0], { g: gDate, h: paid }));
+            usedOps.add(found[0].sheet + ':' + found[0].row);
             matched.push({
                 lp: found[0].lp, amount: (found[0].gross / 100).toFixed(2), date: inv.date,
                 ksef: inv.ksef, contractor: inv.contractor, firma: found[0].firma, uwagi: found[0].uwagi,
@@ -349,7 +352,21 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
                 }
             }
             unmatched.push(rec);
+            unmatchedMeta.push({ rec, month, cents: inv.cents });
         }
+    }
+    // Faktura mogła różnić się o 1 grosz od operacji w ewidencji (różne metody liczenia netto/VAT/brutto):
+    // zbieramy Lp i firmę niedopasowanych, nieksefowych operacji z tego miesiąca, których brutto różni się o ±1 grosz.
+    for (const { rec, month, cents } of unmatchedMeta) {
+        if (cents === null || !ledger[month]) continue;
+        const near = new Map();
+        for (const delta of [-1, 1]) {
+            for (const e of ledger[month].koszt.get(cents + delta) || []) {
+                const key = e.sheet + ':' + e.row;
+                if (!usedOps.has(key)) near.set(key, { lp: e.lp, firma: String(e.firma ?? '').trim() });
+            }
+        }
+        if (near.size) rec.nearOps = [...near.values()].sort((a, b) => String(a.lp).localeCompare(String(b.lp), 'pl', { numeric: true }));
     }
     return { matched, unmatched, already, plan, additions, free };
 }
