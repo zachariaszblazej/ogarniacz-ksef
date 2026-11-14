@@ -272,6 +272,42 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
     const usedOps = new Set(); // operacje użyte w dopasowaniach: "arkusz:wiersz"
     const unmatchedMeta = []; // { rec, month, cents, inv, gDate, paid } - do wykrywania różnic o 1 grosz
     const manual = []; // dane do ręcznego dopasowania niedopasowanych faktur (tylko dla procesu głównego)
+
+    // Operacja do dopisania w nowym wierszu ewidencji; kwoty netto i VAT wyłącznie z pliku XML faktury (bez XML: puste)
+    const buildAddition = (inv, sheet, gDate, paid) => {
+        const ksef = String(inv.ksef).trim();
+        const date = inv.dateParts;
+        const grossC = inv.cents; // ze znakiem
+        const xml = amountsFor ? amountsFor(ksef) : { error: 'nie podano folderu z XML' };
+        let netC = null, vatC = null, verify;
+        if (xml.error) {
+            verify = { ok: false, text: `brak kwot netto i VAT: ${xml.error}` };
+        } else {
+            netC = xml.net;
+            vatC = xml.vat;
+            verify = netC + vatC === grossC
+                ? { ok: true, text: '' }
+                : { ok: false, text: `kwota brutto: ${centsString(grossC).replace('.', ',')}, suma netto i VAT: ${centsString(netC + vatC).replace('.', ',')}` };
+        }
+        return {
+            sheet, ksef,
+            b: 'T',
+            c: ksef,
+            e: firstWord(inv.contractor),
+            f: date ? { text: date.text, serial: date.serial } : null,
+            // brak terminu zapłaty, ale faktura opłacona: do G trafia data faktycznej zapłaty (auto)
+            g: gDate,
+            h: paid ? { text: paid.text, serial: paid.serial } : null,
+            amountCol: 'P', // koszty netto
+            amount: netC === null ? null : centsString(netC),
+            gross: centsString(grossC),
+            vat: vatC === null ? null : centsString(vatC),
+            verify,
+            grossCol: 'Q',
+            vatCol: 'R',
+            cost: true,
+        };
+    };
     const free = {};
     for (const d of Object.values(ledger)) free[d.sheet] = d.freeRows;
     for (const inv of invoices) {
@@ -319,66 +355,42 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
                 reason,
             };
             if (noMatch) {
-                const ksef = String(inv.ksef).trim();
-                {
-                    const date = inv.dateParts;
-                    // kwoty netto i VAT wyłącznie z pliku XML faktury; bez poprawnego XML pozostają puste (null)
-                    const grossC = inv.cents; // ze znakiem
-                    const xml = amountsFor ? amountsFor(ksef) : { error: 'nie podano folderu z XML' };
-                    let netC = null, vatC = null, verify;
-                    if (xml.error) {
-                        verify = { ok: false, text: `brak kwot netto i VAT: ${xml.error}` };
-                    } else {
-                        netC = xml.net;
-                        vatC = xml.vat;
-                        verify = netC + vatC === grossC
-                            ? { ok: true, text: '' }
-                            : { ok: false, text: `kwota brutto: ${centsString(grossC).replace('.', ',')}, suma netto i VAT: ${centsString(netC + vatC).replace('.', ',')}` };
-                    }
-                    rec.addId = additions.length;
-                    additions.push({
-                        sheet: ledger[month].sheet, ksef,
-                        b: 'T',
-                        c: ksef,
-                        e: firstWord(inv.contractor),
-                        f: date ? { text: date.text, serial: date.serial } : null,
-                        // brak terminu zapłaty, ale faktura opłacona: do G trafia data faktycznej zapłaty (auto)
-                        g: gDate,
-                        h: paid ? { text: paid.text, serial: paid.serial } : null,
-                        amountCol: 'P', // koszty netto
-                        amount: netC === null ? null : centsString(netC),
-                        gross: centsString(grossC),
-                        vat: vatC === null ? null : centsString(vatC),
-                        verify,
-                        grossCol: 'Q',
-                        vatCol: 'R',
-                        cost: true,
-                    });
-                    rec.canFuel = true;
-                    rec.canInni = true;
-                }
+                rec.addId = additions.length;
+                additions.push(buildAddition(inv, ledger[month].sheet, gDate, paid));
+                rec.canFuel = true;
+                rec.canInni = true;
             }
             unmatched.push(rec);
             unmatchedMeta.push({ rec, month, cents: inv.cents, inv, gDate, paid });
         }
     }
-    // Faktura mogła różnić się o 1 grosz od operacji w ewidencji (różne metody liczenia netto/VAT/brutto):
-    // zbieramy Lp i firmę niedopasowanych, nieksefowych operacji z tego miesiąca, których brutto różni się o ±1 grosz.
+    // Kandydaci do ręcznego dopasowania: niedopasowane, nieksefowe operacje z miesiąca faktury o tej samej kwocie brutto
+    // oraz różniące się o ±1 grosz (różne metody liczenia netto/VAT/brutto).
     for (const { rec, month, cents, inv, gDate, paid } of unmatchedMeta) {
         if (cents === null || !ledger[month]) continue;
         const near = new Map();
-        for (const delta of [-1, 1]) {
+        const exactKeys = new Set();
+        for (const delta of [0, -1, 1]) {
             for (const e of ledger[month].koszt.get(cents + delta) || []) {
                 const key = e.sheet + ':' + e.row;
-                if (!usedOps.has(key)) near.set(key, e);
+                if (usedOps.has(key)) continue;
+                near.set(key, e);
+                if (delta === 0) exactKeys.add(key);
             }
         }
         if (near.size) {
             rec.nearOps = [...near.entries()].map(([key, e]) => ({
                 key, lp: e.lp, zl: e.zl, firma: String(e.firma ?? '').trim(), gross: e.gross, uwagi: e.uwagi,
+                exact: exactKeys.has(key),
             })).sort((a, b) => String(a.lp).localeCompare(String(b.lp), 'pl', { numeric: true }));
+            rec.hasExact = exactKeys.size > 0;
             rec.nearId = manual.length;
             manual.push({ inv, gDate, paid, entries: near }); // entries: Map klucz -> wpis ewidencji
+        }
+        // wiele pasujących operacji: fakturę można też dopisać jako nową - operacja czeka wyłączona (latent)
+        if (rec.hasExact && rec.addId === undefined) {
+            rec.latentAddId = additions.length;
+            additions.push({ ...buildAddition(inv, ledger[month].sheet, gDate, paid), latent: true });
         }
     }
     return { matched, unmatched, already, plan, additions, free, manual };

@@ -185,7 +185,7 @@ $('run').onclick = async () => {
     pickInv = new Set();
     additions = adds;
     freeRows = free;
-    addOn = adds.map(() => true);
+    addOn = adds.map(a => !a.latent); // dopisanie „latent” włącza dopiero wybór „Dodaj jako nową operację”
     fuelOn = adds.map(() => '');
     eEdit = adds.map(() => '');
     zlEdit = adds.map(() => '');
@@ -252,13 +252,16 @@ function availableNear(rec) {
     return (rec.nearOps || []).filter(o => !used.has(o.key));
 }
 
-// Ostrzeżenie przy niedopasowanej fakturze: są operacje różniące się o 1 grosz; kliknięcie otwiera listę do wyboru
+// Ostrzeżenie przy niedopasowanej fakturze: są operacje pasujące lub różniące się o 1 grosz; kliknięcie otwiera listę do wyboru
+const hasAddOption = rec => rec.latentAddId !== undefined; // faktura z wieloma dopasowaniami może być też dopisana jako nowa
 function nearWarning(rec) {
-    if (!availableNear(rec).length) return null;
+    if (!availableNear(rec).length && !hasAddOption(rec)) return null;
     const w = document.createElement('span');
     w.className = 'near-warn';
     w.textContent = '!!!';
-    bindTip(w, 'Są niedopasowane operacje różniące się o 1 grosz od tej faktury: Kliknij, aby dowiedzieć się więcej');
+    bindTip(w, rec.hasExact
+        ? 'Jest więcej niż 1 możliwe dopasowanie dla tej faktury. Kliknij, aby dowiedzieć się więcej'
+        : 'Są niedopasowane operacje różniące się o 1 grosz od tej faktury: Kliknij, aby dowiedzieć się więcej');
     w.onclick = () => openNearModal(rec);
     return w;
 }
@@ -276,11 +279,38 @@ function manualMarker(planId) {
 // ---- Okno z listą potencjalnych operacji dla faktury ----
 let nearRec = null; // faktura, dla której otwarto okno
 let nearSel = null; // wybrana operacja (null = nic nie wybrano)
+let nearAddCb = null; // pole „Dodaj jako nową operację” (null, gdy faktura go nie ma)
+let nearAddInitial = false; // stan tego pola w chwili otwarcia okna
+
+// Zatwierdź jest aktywne po wyborze operacji albo po zmianie pola „Dodaj jako nową operację”
+function updateNearOk() {
+    const addChanged = Boolean(nearAddCb) && nearAddCb.checked !== nearAddInitial;
+    $('nm-ok').disabled = !(nearSel || addChanged);
+}
+
+// Dopisanie faktury jako nowej operacji: przełącznik w tabeli niedopasowanych pojawia się (want) albo znika
+function setAddNew(rec, want) {
+    if (want) {
+        rec.addId = rec.latentAddId;
+        rec.canFuel = true;
+        rec.canInni = true;
+        addOn[rec.addId] = true;
+    } else if (rec.addId !== undefined) {
+        addOn[rec.addId] = false;
+        rec.addId = undefined;
+        rec.canFuel = false;
+        rec.canInni = false;
+    }
+    renderUnmatched();
+    refreshFillState();
+}
 
 function openNearModal(rec) {
     hideTip();
     nearRec = rec;
     nearSel = null;
+    nearAddCb = null;
+    nearAddInitial = false;
     // numer KSEF jest hiperłączem otwierającym PDF faktury (bez linku, gdy pliku PDF nie ma)
     let ksefEl;
     if (rec.pdf) {
@@ -307,7 +337,11 @@ function openNearModal(rec) {
         const radio = document.createElement('input');
         radio.type = 'radio';
         radio.name = 'nm-op';
-        radio.onchange = () => { nearSel = o; $('nm-ok').disabled = false; };
+        radio.onchange = () => {
+            nearSel = o;
+            if (nearAddCb) nearAddCb.checked = false; // wybór operacji wyklucza dopisanie jako nowej
+            updateNearOk();
+        };
         tr.insertCell().appendChild(radio);
         tr.onclick = () => { radio.checked = true; radio.onchange(); };
         for (const [v, cls] of [[o.lp, ''], [o.zl, ''], [o.firma, ''], [(o.gross / 100).toFixed(2), 'num'], [o.uwagi, '']]) {
@@ -315,6 +349,29 @@ function openNearModal(rec) {
             td.textContent = v ?? '';
             if (cls) td.className = cls;
         }
+    }
+    if (hasAddOption(rec)) {
+        // ostatnia opcja: dopisanie faktury jako nowej operacji; zostaje na liście i można ją później odznaczyć
+        const tr = body.insertRow();
+        tr.className = 'pick-row';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = rec.addId !== undefined && addOn[rec.addId];
+        nearAddCb = cb;
+        nearAddInitial = cb.checked;
+        cb.onchange = () => {
+            if (cb.checked) {
+                nearSel = null; // dopisanie wyklucza wybór operacji
+                for (const r of body.querySelectorAll('input[type=radio]')) r.checked = false;
+            }
+            updateNearOk();
+        };
+        tr.insertCell().appendChild(cb);
+        tr.onclick = e => { if (e.target !== cb) { cb.checked = !cb.checked; cb.onchange(); } };
+        const td = tr.insertCell();
+        td.colSpan = 5;
+        td.textContent = 'Dodaj jako nową operację';
+        td.style.fontWeight = '600';
     }
     $('nm-ok').disabled = true;
     $('near-modal').classList.remove('hidden');
@@ -324,6 +381,7 @@ function closeNearModal() {
     $('near-modal').classList.add('hidden');
     nearRec = null;
     nearSel = null;
+    nearAddCb = null;
 }
 
 $('nm-close').onclick = closeNearModal;
@@ -333,8 +391,16 @@ document.addEventListener('keydown', e => {
 });
 
 $('nm-ok').onclick = async () => {
-    if (!nearSel || !nearRec) return;
+    if (!nearRec) return;
     const rec = nearRec;
+    if (!nearSel) {
+        // zmieniono tylko pole „Dodaj jako nową operację” (zaznaczone albo odznaczone)
+        if (!nearAddCb || nearAddCb.checked === nearAddInitial) return;
+        const want = nearAddCb.checked;
+        closeNearModal();
+        setAddNew(rec, want);
+        return;
+    }
     const op = nearSel;
     const ok = await askConfirm(`Czy chcesz dopasować fakturę do operacji Lp ${op.lp}, Firma ${op.firma || '—'}?`, 'Tak', 'Nie');
     if (!ok) return; // Nie: zamyka tylko okno potwierdzenia
