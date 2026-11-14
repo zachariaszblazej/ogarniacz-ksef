@@ -19,7 +19,16 @@
     </header>
 
     <main>
-        <section class="pickers">
+        <label class="mode-row" title="Włączony: jeden folder z listą (ZAKUP), folderem XML i folderem PDF. Wyłączony: każda rzecz osobno.">
+            <span class="switch"><input type="checkbox" id="bundle-toggle"><span class="knob"></span></span>
+            <span>Wczytaj listę, XML i PDF z jednego folderu</span>
+        </label>
+        <section class="pickers" id="pickers">
+            <div class="picker" id="p-bundle">
+                <span class="label">Folder z fakturami (lista ZAKUP, XML, PDF)</span>
+                <span class="file" id="f-bundle">Nie wybrano folderu</span>
+                <button id="b-bundle" class="ghost">Wybierz folder…</button>
+            </div>
             <div class="picker" id="p-inv">
                 <span class="label">Lista faktur od księgowej</span>
                 <span class="file" id="f-inv">Nie wybrano pliku</span>

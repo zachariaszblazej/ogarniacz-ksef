@@ -4,6 +4,7 @@ const path = require('path');
 const { run } = require('./matcher');
 const { applyPlan } = require('./writer');
 const { pdfPath } = require('./pdfInvoice');
+const { scanBundle } = require('./bundle');
 
 let last = null; // { ledgerPath, mtimeMs, plan }
 let pdfDir = null; // folder z PDF-ami z ostatniego dopasowania
@@ -42,6 +43,12 @@ ipcMain.handle('pick-file', async (_e, title) => {
 ipcMain.handle('pick-dir', async (_e, title) => {
     const r = await dialog.showOpenDialog({ title, properties: ['openDirectory'] });
     return r.canceled ? null : r.filePaths[0];
+});
+
+// Jeden folder z listą (ZAKUP), folderem XML i folderem PDF w środku
+ipcMain.handle('pick-bundle', async (_e, title) => {
+    const r = await dialog.showOpenDialog({ title, properties: ['openDirectory'] });
+    return r.canceled ? null : scanBundle(r.filePaths[0]);
 });
 
 // Renderer podaje tylko nr KSEF; ścieżka powstaje w main z zapamiętanego folderu.

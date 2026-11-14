@@ -62,9 +62,17 @@ main {
 
 .pickers {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr auto;
+    grid-template-columns: repeat(var(--picker-count, 4), 1fr) auto;
     gap: 12px;
     align-items: stretch;
+}
+
+.mode-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    align-self: flex-start;
 }
 
 .picker {

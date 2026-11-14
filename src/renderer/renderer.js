@@ -34,6 +34,45 @@ $('b-led').onclick = async () => setPath('led', await api.pickFile('Ewidencja op
 $('b-xml').onclick = async () => setPath('xml', await api.pickDir('Folder z fakturami XML (nr KSEF.xml)'));
 $('b-pdf').onclick = async () => setPath('pdf', await api.pickDir('Folder z fakturami PDF (nr KSEF.pdf)'));
 
+// ---- Tryb wczytywania: jeden folder (lista ZAKUP + XML + PDF) albo osobno; ustawienie pamiętane między sesjami ----
+function applyMode(bundle) {
+    for (const id of ['p-inv', 'p-xml', 'p-pdf']) $(id).classList.toggle('hidden', bundle);
+    $('p-bundle').classList.toggle('hidden', !bundle);
+    $('pickers').style.setProperty('--picker-count', bundle ? 2 : 4);
+}
+
+// Czyści wybór listy, XML i PDF (ewidencja zostaje)
+function clearSourcePaths() {
+    paths.inv = paths.xml = paths.pdf = null;
+    for (const k of ['inv', 'xml', 'pdf', 'bundle']) {
+        $('f-' + k).textContent = k === 'inv' ? 'Nie wybrano pliku' : 'Nie wybrano folderu';
+        $('p-' + k).classList.remove('set');
+    }
+    $('f-bundle').title = '';
+    $('run').disabled = true;
+}
+
+$('bundle-toggle').checked = localStorage.getItem('bundleMode') !== '0'; // domyślnie włączony
+applyMode($('bundle-toggle').checked);
+$('bundle-toggle').onchange = () => {
+    localStorage.setItem('bundleMode', $('bundle-toggle').checked ? '1' : '0');
+    clearSourcePaths();
+    applyMode($('bundle-toggle').checked);
+};
+
+$('b-bundle').onclick = async () => {
+    const res = await api.pickBundle('Folder z fakturami (lista ZAKUP, folder XML, folder PDF)');
+    if (!res) return;
+    if (!res.ok) return showMsg('Błąd: ' + res.error);
+    $('msg').className = 'msg hidden';
+    setPath('inv', res.inv);
+    setPath('xml', res.xml);
+    setPath('pdf', res.pdf);
+    $('f-bundle').textContent = res.dir;
+    $('f-bundle').title = `Lista: ${res.inv}\nXML: ${res.xml}\nPDF: ${res.pdf}`;
+    $('p-bundle').classList.add('set');
+};
+
 // Przycisk otwierający PDF faktury; nieaktywny, gdy pliku nie ma w folderze
 function pdfButton(r) {
     const b = document.createElement('button');
@@ -555,11 +594,10 @@ $('open-backups').onclick = () => api.openBackups();
 $('reset').onclick = async () => {
     if (!(await confirmDiscard())) return;
     await api.reset();
-    paths.inv = paths.xml = paths.pdf = paths.led = null;
-    for (const k of ['inv', 'xml', 'pdf', 'led']) {
-        $('f-' + k).textContent = k === 'xml' || k === 'pdf' ? 'Nie wybrano folderu' : 'Nie wybrano pliku';
-        $('p-' + k).classList.remove('set');
-    }
+    paths.led = null;
+    $('f-led').textContent = 'Nie wybrano pliku';
+    $('p-led').classList.remove('set');
+    clearSourcePaths();
     $('run').disabled = true;
     $('run').textContent = 'Dopasuj';
     $('msg').className = 'msg hidden';
