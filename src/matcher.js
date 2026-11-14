@@ -269,9 +269,27 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         if (i.cents !== null && !isAlready(i)) counts.set(i.cents, (counts.get(i.cents) || 0) + 1);
     }
     const matched = [], unmatched = [], already = [], plan = [], additions = [];
-    const usedOps = new Set(); // operacje użyte w dopasowaniach: "arkusz:wiersz"
-    const unmatchedMeta = []; // { rec, month, cents, inv, gDate, paid } - do wykrywania różnic o 1 grosz
-    const manual = []; // dane do ręcznego dopasowania niedopasowanych faktur (tylko dla procesu głównego)
+    const unmatchedMeta = []; // { rec, month, cents, inv, gDate, paid } - do wyznaczania kandydatów i dopisania jako nowa
+    const manual = []; // dane do ręcznego dopasowania faktur (tylko dla procesu głównego)
+
+    // Kandydaci do ręcznego dopasowania: nieksefowe operacje z miesiąca faktury o tej samej kwocie brutto oraz różniące się
+    // o ±1 grosz (różne metody liczenia netto/VAT/brutto). Dostępność (czy operacja jest już zajęta) rozstrzyga interfejs.
+    const candidates = (month, cents) => {
+        const entries = new Map();
+        const exact = new Set();
+        if (cents === null || !ledger[month]) return { entries, exact };
+        for (const delta of [0, -1, 1]) {
+            for (const e of ledger[month].koszt.get(cents + delta) || []) {
+                const key = e.sheet + ':' + e.row;
+                entries.set(key, e);
+                if (delta === 0) exact.add(key);
+            }
+        }
+        return { entries, exact };
+    };
+    const candidateList = ({ entries, exact }) => [...entries.entries()].map(([key, e]) => ({
+        key, lp: e.lp, zl: e.zl, firma: String(e.firma ?? '').trim(), gross: e.gross, uwagi: e.uwagi, exact: exact.has(key),
+    })).sort((a, b) => String(a.lp).localeCompare(String(b.lp), 'pl', { numeric: true }));
 
     // Operacja do dopisania w nowym wierszu ewidencji; kwoty netto i VAT wyłącznie z pliku XML faktury (bez XML: puste)
     const buildAddition = (inv, sheet, gDate, paid) => {
@@ -344,8 +362,20 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         }
         if (found.length === 1) {
             plan.push(makePlanItem(inv, found[0], { g: gDate, h: paid }));
-            usedOps.add(found[0].sheet + ':' + found[0].row);
-            matched.push(makeMatchedRecord(inv, found[0]));
+            const mrec = makeMatchedRecord(inv, found[0]);
+            // dane potrzebne, gdy użytkownik odrzuci dopasowanie (lista operacji, dopisanie jako nowa operacja)
+            const cand = candidates(month, inv.cents);
+            mrec.opKey = found[0].sheet + ':' + found[0].row;
+            mrec.nearId = manual.length;
+            manual.push({ inv, gDate, paid, entries: cand.entries });
+            mrec.nearOps = candidateList(cand);
+            mrec.hasExact = cand.exact.size > 0;
+            mrec.due = due ? due.text : '';
+            mrec.paid = paid ? paid.text : '';
+            mrec.shortName = firstWord(inv.contractor);
+            mrec.latentAddId = additions.length;
+            additions.push({ ...buildAddition(inv, ledger[month].sheet, gDate, paid), latent: true });
+            matched.push(mrec);
         } else {
             const rec = {
                 date: inv.date, ksef: inv.ksef, contractor: firstWord(inv.contractor),
@@ -364,28 +394,14 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
             unmatchedMeta.push({ rec, month, cents: inv.cents, inv, gDate, paid });
         }
     }
-    // Kandydaci do ręcznego dopasowania: niedopasowane, nieksefowe operacje z miesiąca faktury o tej samej kwocie brutto
-    // oraz różniące się o ±1 grosz (różne metody liczenia netto/VAT/brutto).
+    // Kandydaci do ręcznego dopasowania niedopasowanych faktur (ta sama kwota brutto lub ±1 grosz)
     for (const { rec, month, cents, inv, gDate, paid } of unmatchedMeta) {
-        if (cents === null || !ledger[month]) continue;
-        const near = new Map();
-        const exactKeys = new Set();
-        for (const delta of [0, -1, 1]) {
-            for (const e of ledger[month].koszt.get(cents + delta) || []) {
-                const key = e.sheet + ':' + e.row;
-                if (usedOps.has(key)) continue;
-                near.set(key, e);
-                if (delta === 0) exactKeys.add(key);
-            }
-        }
-        if (near.size) {
-            rec.nearOps = [...near.entries()].map(([key, e]) => ({
-                key, lp: e.lp, zl: e.zl, firma: String(e.firma ?? '').trim(), gross: e.gross, uwagi: e.uwagi,
-                exact: exactKeys.has(key),
-            })).sort((a, b) => String(a.lp).localeCompare(String(b.lp), 'pl', { numeric: true }));
-            rec.hasExact = exactKeys.size > 0;
+        const cand = candidates(month, cents);
+        if (cand.entries.size) {
+            rec.nearOps = candidateList(cand);
+            rec.hasExact = cand.exact.size > 0;
             rec.nearId = manual.length;
-            manual.push({ inv, gDate, paid, entries: near }); // entries: Map klucz -> wpis ewidencji
+            manual.push({ inv, gDate, paid, entries: cand.entries }); // entries: Map klucz -> wpis ewidencji
         }
         // wiele pasujących operacji: fakturę można też dopisać jako nową - operacja czeka wyłączona (latent)
         if (rec.hasExact && rec.addId === undefined) {

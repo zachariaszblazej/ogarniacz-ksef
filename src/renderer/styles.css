@@ -169,6 +169,20 @@ button.pdf-btn {
     padding: 2px 10px;
 }
 
+button.reject-btn {
+    margin-top: 0;
+    padding: 0 9px;
+    background: transparent;
+    color: var(--err);
+    border-color: var(--err);
+    font-weight: 700;
+}
+
+button.reject-btn:hover {
+    background: var(--err);
+    color: #fff;
+}
+
 .msg {
     padding: 8px 12px;
     border-radius: 4px;

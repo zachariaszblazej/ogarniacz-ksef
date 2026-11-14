@@ -7,7 +7,7 @@ let matchOn = [];       // przełączniki operacji
 let cellOff = new Set(); // wyłączone komórki: "id:b" / "id:c" / "id:f"
 let pickInv = new Set(); // G/H, w których wybrano datę z faktury zamiast tej z ewidencji: "id:g" / "id:h"
 let dateCells = []; // komórki G/H tabeli dopasowanych: { td, i, col } - do przerysowania po zmianie ustawienia
-let matchedRecs = [];   // rekordy tabeli dopasowanych (indeks = id w fullPlan); ręcznie dopasowane mają manual: true
+let matchedRecs = [];   // rekordy faktur dopasowanych (indeks = id w fullPlan); state: 'matched' | 'rejected' | 'gone'
 let unmatchedRecs = []; // rekordy tabeli niedopasowanych; przeniesione do dopasowanych mają movedTo (id w fullPlan)
 const CELLS = ['b', 'c', 'f', 'g', 'h'];
 
@@ -193,9 +193,10 @@ $('run').onclick = async () => {
     addCellOff = new Set();
     if (!months.length) showMsg('W ewidencji nie znaleziono arkuszy z nazwami miesięcy.', true);
 
-    matchedRecs = matched;
+    matchedRecs = matched.map(m => ({ ...m, state: 'matched' }));
     unmatchedRecs = unmatched;
     renderMatched();
+    renderRejected();
     renderUnmatched();
     fill($('t-already'), already, ['pdf', 'date', 'ksef', 'contractor', 'amount'], 'amount');
     $('c-already').textContent = 'Liczba rekordów: ' + already.length;
@@ -245,8 +246,9 @@ function bindTip(el, text) {
     el.addEventListener('mouseleave', hideTip);
 }
 
-const usedOpKeys = () => new Set(matchedRecs.filter(r => r.manual && !r.removed).map(r => r.opKey));
-// operacje różniące się o 1 grosz, które nie zostały już ręcznie dopasowane do innej faktury
+// operacje zajęte przez aktualnie dopasowane faktury (auto i ręczne); odrzucone dopasowanie zwalnia swoją operację
+const usedOpKeys = () => new Set(matchedRecs.filter(r => r.state === 'matched' && r.opKey).map(r => r.opKey));
+// operacje (ta sama kwota lub ±1 grosz), które nie są już zajęte przez inną dopasowaną fakturę
 function availableNear(rec) {
     const used = usedOpKeys();
     return (rec.nearOps || []).filter(o => !used.has(o.key));
@@ -259,9 +261,11 @@ function nearWarning(rec) {
     const w = document.createElement('span');
     w.className = 'near-warn';
     w.textContent = '!!!';
-    bindTip(w, rec.hasExact
-        ? 'Jest więcej niż 1 możliwe dopasowanie dla tej faktury. Kliknij, aby dowiedzieć się więcej'
-        : 'Są niedopasowane operacje różniące się o 1 grosz od tej faktury: Kliknij, aby dowiedzieć się więcej');
+    bindTip(w, rec.rejected
+        ? 'Ta faktura była dopasowana, ale została odrzucona. Kliknij, jeśli chcesz dowiedzieć się więcej.'
+        : rec.hasExact
+            ? 'Jest więcej niż 1 możliwe dopasowanie dla tej faktury. Kliknij, aby dowiedzieć się więcej'
+            : 'Są niedopasowane operacje różniące się o 1 grosz od tej faktury: Kliknij, aby dowiedzieć się więcej');
     w.onclick = () => openNearModal(rec);
     return w;
 }
@@ -398,6 +402,10 @@ $('nm-ok').onclick = async () => {
         if (!nearAddCb || nearAddCb.checked === nearAddInitial) return;
         const want = nearAddCb.checked;
         closeNearModal();
+        if (rec.state === 'rejected') { // odrzucone dopasowanie: dopisanie jako nowa przenosi fakturę do niedopasowanych
+            if (want) rejectedToUnmatched(rec);
+            return;
+        }
         setAddNew(rec, want);
         return;
     }
@@ -408,19 +416,107 @@ $('nm-ok').onclick = async () => {
     closeNearModal();
     if (!res.ok) return showMsg('Błąd: ' + res.error);
     if (res.planId !== fullPlan.length) return showMsg('Błąd: niespójny stan programu – uruchom „Dopasuj” ponownie.');
-    // faktura trafia na koniec listy dopasowanych jak zwykła dopasowana, a z niedopasowanych znika
+    addMatchedFrom(rec, op, res);
+};
+
+// Dane faktury (nie operacji) przenoszone między tabelami: kandydaci, możliwość dopisania, terminy, PDF
+function carry(s) {
+    const slot = s.addSlot ?? s.addId ?? s.latentAddId;
+    return {
+        nearId: s.nearId, nearOps: s.nearOps, hasExact: s.hasExact, latentAddId: slot, addSlot: slot,
+        due: s.due, paid: s.paid, shortName: s.shortName ?? s.contractor, pdf: s.pdf,
+    };
+}
+
+// Końcówka ręcznego dopasowania. src: niedopasowana faktura (z śladem ręcznego dopasowania)
+// albo odrzucone dopasowanie (wraca do dopasowanych „jak gdyby nigdy nic”, bez śladu odrzucenia)
+function addMatchedFrom(src, op, res) {
     fullPlan.push(res.item);
     matchOn.push(true);
-    matchedRecs.push({ ...res.record, manual: true, opKey: op.key, fromRec: rec });
-    rec.movedTo = res.planId;
-    if (rec.addId !== undefined) {
-        rec.prevAdd = addOn[rec.addId];
-        addOn[rec.addId] = false; // nie dopisujemy jej jako nowej operacji
+    const base = { ...res.record, ...carry(src), opKey: op.key, state: 'matched' };
+    if (src.state === 'rejected') {
+        src.state = 'gone';
+        matchedRecs.push({ ...base, manual: false });
+    } else {
+        // faktura trafia na koniec listy dopasowanych, a z niedopasowanych znika
+        matchedRecs.push({ ...base, manual: true, fromRec: src });
+        src.movedTo = res.planId;
+        if (src.addId !== undefined) {
+            src.prevAdd = addOn[src.addId];
+            addOn[src.addId] = false; // nie dopisujemy jej jako nowej operacji
+        }
     }
     renderMatched();
+    renderRejected();
     renderUnmatched();
     refreshFillState();
-};
+}
+
+// Odrzucone dopasowanie zapisane jako nowa operacja: faktura trafia do niedopasowanych z włączonym dopisaniem
+function rejectedToUnmatched(m) {
+    m.state = 'gone';
+    const slot = m.addSlot;
+    if (slot !== undefined) addOn[slot] = true;
+    unmatchedRecs.push({
+        date: m.date, ksef: m.ksef, contractor: m.shortName, due: m.due, paid: m.paid, amount: m.amount,
+        reason: 'Dopasowanie odrzucone', pdf: m.pdf, nearOps: m.nearOps, nearId: m.nearId, hasExact: m.hasExact,
+        latentAddId: slot, addId: slot, canFuel: true, canInni: true, rejected: true,
+    });
+    renderMatched();
+    renderRejected();
+    renderUnmatched();
+    refreshFillState();
+}
+
+// Czerwony X w tabeli dopasowanych: odrzucenie dopasowania (po potwierdzeniu faktura trafia do odrzuconych)
+async function rejectMatch(i) {
+    if (!(await askConfirm('Czy chcesz odrzucić to dopasowanie i przenieść fakturę do odrzuconych?', 'Tak', 'Nie'))) return;
+    matchedRecs[i].state = 'rejected';
+    matchOn[i] = false;
+    renderMatched();
+    renderRejected();
+    refreshFillState();
+}
+
+function rejectButton(i) {
+    const b = document.createElement('button');
+    b.className = 'reject-btn';
+    b.textContent = '✕';
+    b.title = 'Odrzuć dopasowanie';
+    b.setAttribute('aria-label', 'Odrzuć dopasowanie');
+    b.onclick = () => rejectMatch(i);
+    return b;
+}
+
+// ---- Odrzucone dopasowane: układ jak „Już w ewidencji” + przycisk wyboru operacji ----
+function renderRejected() {
+    const tbody = $('t-rej');
+    tbody.replaceChildren();
+    const rows = matchedRecs.filter(r => r.state === 'rejected');
+    $('c-rej').textContent = 'Liczba rekordów: ' + rows.length;
+    if (!rows.length) {
+        const td = tbody.insertRow().insertCell();
+        td.colSpan = 6;
+        td.className = 'empty';
+        td.textContent = 'Brak rekordów';
+        return;
+    }
+    for (const r of rows) {
+        const tr = tbody.insertRow();
+        const pick = document.createElement('button');
+        pick.className = 'ghost pdf-btn';
+        pick.textContent = 'Wybierz';
+        pick.title = 'Wybierz operację z listy potencjalnych operacji';
+        pick.onclick = () => openNearModal(r);
+        tr.insertCell().appendChild(pick);
+        for (const k of ['pdf', 'date', 'ksef', 'contractor', 'amount']) {
+            const td = tr.insertCell();
+            if (k === 'pdf') { td.appendChild(pdfButton(r)); continue; }
+            td.textContent = r[k] ?? '';
+            if (k === 'amount') td.className = 'num';
+        }
+    }
+}
 
 // Cofnięcie ręcznego dopasowania: faktura wraca do niedopasowanych
 async function unmatchManual(planId) {
@@ -428,17 +524,18 @@ async function unmatchManual(planId) {
     const res = await api.manualUnmatch(planId);
     if (!res.ok) return showMsg('Błąd: ' + res.error);
     const m = matchedRecs[planId];
-    m.removed = true;
+    m.state = 'gone';
     matchOn[planId] = false;
     const rec = m.fromRec;
     delete rec.movedTo;
     if (rec.addId !== undefined) addOn[rec.addId] = rec.prevAdd ?? true;
     renderMatched();
+    renderRejected();
     renderUnmatched();
     refreshFillState();
 }
 
-// ---- Lista zmatchowanych: przełączniki aktywności ----
+// ---- Lista dopasowanych: czerwony X odrzuca dopasowanie ----
 // Data z XML w kolumnie G/H: do pustej komórki wpisujemy ją sami; gdy w ewidencji coś już jest i się różni,
 // użytkownik przełącza między wartością z ewidencji (domyślnie) a wartością z faktury (wyróżniona)
 function dateStatusCell(td, p, id, col) {
@@ -493,7 +590,7 @@ function renderMatched() {
     const tbody = $('t-ok');
     dateCells = [];
     tbody.replaceChildren();
-    const rows = matchedRecs.map((r, i) => ({ r, i })).filter(x => !x.r.removed);
+    const rows = matchedRecs.map((r, i) => ({ r, i })).filter(x => x.r.state === 'matched');
     if (!rows.length) {
         const td = tbody.insertRow().insertCell();
         td.colSpan = 11;
@@ -504,12 +601,7 @@ function renderMatched() {
     rows.forEach(({ r, i }) => {
         const tr = tbody.insertRow();
         tr.dataset.idx = i;
-        tr.classList.toggle('off', !matchOn[i]);
-        tr.insertCell().appendChild(makeSwitch('Uwzględnij tę operację w zmianach ewidencji', on => {
-            matchOn[i] = on;
-            tr.classList.toggle('off', !on);
-            refreshFillState();
-        }, matchOn[i]));
+        tr.insertCell().appendChild(rejectButton(i));
         for (const k of ['pdf', 'date', 'lp', 'ksef', 'contractor', 'firma', 'gTerm', 'hPaid', 'amount', 'uwagi']) {
             const td = tr.insertCell();
             if (k === 'pdf') {
@@ -683,13 +775,12 @@ function effectiveAdds() {
 }
 
 function refreshFillState() {
-    const activeIds = fullPlan.map((_, i) => i).filter(i => !(matchedRecs[i] && matchedRecs[i].removed));
+    const activeIds = fullPlan.map((_, i) => i).filter(i => matchedRecs[i] && matchedRecs[i].state === 'matched');
     const matchedCount = activeIds.length;
-    const active = activeIds.filter(i => matchOn[i]).length;
     const eff = effectivePlan();
     const newCount = addOn.filter(Boolean).length;
     const badCount = unmatchedRecs.filter(r => r.movedTo === undefined).length;
-    $('c-ok').textContent = `Liczba rekordów: ${matchedCount} (aktywnych: ${active})`;
+    $('c-ok').textContent = `Liczba rekordów: ${matchedCount}`;
     $('s-ok').textContent = matchedCount;
     $('c-bad').textContent = 'Liczba rekordów: ' + badCount;
     $('s-bad').textContent = badCount;
@@ -920,6 +1011,8 @@ $('reset').onclick = async () => {
     $('t-already').replaceChildren();
     $('c-already').textContent = 'Liczba rekordów: 0';
     $('t-bad').replaceChildren();
+    $('t-rej').replaceChildren();
+    $('c-rej').textContent = 'Liczba rekordów: 0';
     $('c-ok').textContent = 'Liczba rekordów: 0';
     $('c-bad').textContent = 'Liczba rekordów: 0';
     fullPlan = [];

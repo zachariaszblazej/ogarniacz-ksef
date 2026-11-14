@@ -105,10 +105,7 @@ ipcMain.handle('manual-match', (_e, nearId, key) => {
         const m = Number.isInteger(nearId) ? last.manual[nearId] : null;
         const entry = m && typeof key === 'string' ? m.entries.get(key) : null;
         if (!entry) throw new Error('Nie znaleziono wskazanej operacji.');
-        for (const u of last.manualUsed.values()) {
-            if (u.key === key) throw new Error('Ta operacja jest już dopasowana do innej faktury.');
-            if (u.nearId === nearId) throw new Error('Ta faktura jest już dopasowana ręcznie.');
-        }
+        // dostępność operacji (czy nie jest zajęta przez inną fakturę) pilnuje interfejs; zapisywane są tylko pozycje, które wskaże
         const pdf = pdfPath(pdfDir, m.inv.ksef) !== null;
         const item = { ...makePlanItem(m.inv, entry, { g: m.gDate, h: m.paid }), pdf };
         const planId = last.plan.length;

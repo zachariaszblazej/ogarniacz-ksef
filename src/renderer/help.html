@@ -113,10 +113,11 @@
         <p>Przycisk <strong>Dopasuj</strong> działa dopiero, gdy wybrane jest wszystko, co potrzebne.</p>
 
         <h2 id="tabele">3. Co pokazuje program</h2>
-        <p>Na górze są statystyki: liczba faktur na liście, dopasowanych, niedopasowanych i już w ewidencji. Poniżej trzy tabele:</p>
+        <p>Na górze są statystyki: liczba faktur na liście, dopasowanych, niedopasowanych i już w ewidencji. Poniżej cztery tabele:</p>
         <table>
             <tr><th>Tabela</th><th>Znaczenie</th></tr>
             <tr><td>Dopasowane z ewidencją</td><td>Faktura ma w ewidencji dokładnie jedną pasującą operację. Program proponuje uzupełnić jej dane.</td></tr>
+            <tr><td>Odrzucone dopasowane</td><td>Dopasowania, które odrzuciłeś czerwonym X. Nic dla nich nie jest zapisywane. Można je przywrócić (rozdział 5).</td></tr>
             <tr><td>Niedopasowane</td><td>Nie udało się jednoznacznie dopasować. Część z nich można dopisać do ewidencji jako nowe operacje.</td></tr>
             <tr><td>Już w ewidencji</td><td>Numer KSEF tej faktury jest już wpisany w ewidencji. Domyślnie zwinięta.</td></tr>
         </table>
@@ -143,9 +144,20 @@
         </table>
 
         <h2 id="dopasowane">5. Faktury dopasowane</h2>
-        <p>W tabeli widać m.in. numer Lp operacji, kwotę brutto <strong>z ewidencji</strong>, firmę i uwagi z ewidencji. Kolumna
-            <strong>Dodaj</strong> (przełącznik) decyduje, czy zmiany dla tej faktury mają trafić do ewidencji. Domyślnie
-            wszystkie są włączone.</p>
+        <p>W tabeli widać m.in. numer Lp operacji, kwotę brutto <strong>z ewidencji</strong>, firmę i uwagi z ewidencji. Pierwsza kolumna
+            to <strong>czerwony X</strong>: po potwierdzeniu odrzuca dopasowanie i przenosi fakturę do tabeli „Odrzucone dopasowane”
+            (dla odrzuconych nic nie jest zapisywane do ewidencji). Wszystkie dopasowane pozycje są domyślnie uwzględniane w zapisie.</p>
+        <h3>Odrzucone dopasowane</h3>
+        <p>Tabela ma układ jak „Już w ewidencji” (PDF, Data, Nr KSEF, Kontrahent, Kwota brutto), a w pierwszej kolumnie przycisk
+            <strong>Wybierz</strong>, który otwiera okno z listą potencjalnych operacji (o tej samej kwocie brutto i różniących się o 1 grosz).</p>
+        <ul>
+            <li><strong>Przywrócenie do dopasowanych</strong> – wybierz operację z listy i zatwierdź. Faktura wraca do dopasowanych „jak gdyby
+                nigdy nic” (bez śladu odrzucenia) i można ją znów odrzucić czerwonym X.</li>
+            <li><strong>Zapis jako nowa operacja</strong> – zaznacz „Dodaj jako nową operację”. Faktura trafia do niedopasowanych z włączonym
+                dopisaniem, a w kolumnie PDF ma ikonę <strong>!!!</strong> z podpowiedzią, że była dopasowana, ale została odrzucona.
+                Po kliknięciu ikony otwiera się ta sama lista operacji. Jeśli przypiszesz ją do operacji, trafi do dopasowanych
+                z ikoną <strong>!!!</strong> (jak inne faktury dopasowane ręcznie z niedopasowanych).</li>
+        </ul>
         <h3>Co program proponuje wpisać</h3>
         <table>
             <tr><th>Kolumna ewidencji</th><th>Wartość</th></tr>
