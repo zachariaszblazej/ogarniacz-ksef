@@ -21,6 +21,8 @@ ipcMain.handle('open-backups', async () => {
     return backupsDir();
 });
 
+let mainWindow = null;
+
 function createWindow() {
     const win = new BrowserWindow({
         width: 1200, height: 820, minWidth: 900, minHeight: 600,
@@ -28,6 +30,8 @@ function createWindow() {
         autoHideMenuBar: true,
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true },
     });
+    mainWindow = win;
+    win.on('closed', () => { mainWindow = null; });
     win.maximize();
     win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
 }
@@ -153,5 +157,15 @@ ipcMain.handle('apply', async (_e, selection) => {
     }
 });
 
-app.whenReady().then(createWindow);
+// Tylko jedno okno programu: drugie uruchomienie kończy się od razu, a istniejące okno wraca na wierzch
+if (!app.requestSingleInstanceLock()) {
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (!mainWindow) return;
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.focus();
+    });
+    app.whenReady().then(createWindow);
+}
 app.on('window-all-closed', () => app.quit());
