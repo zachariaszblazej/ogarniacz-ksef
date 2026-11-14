@@ -236,7 +236,8 @@ function nearWarning(ops) {
     const w = document.createElement('span');
     w.className = 'near-warn';
     w.textContent = '!!!';
-    const lines = ops.map(o => `Lp ${o.lp}${o.firma ? ' – ' + o.firma : ''}`);
+    const lines = ops.map(o => [`Lp ${o.lp}${o.firma ? ' – ' + o.firma : ''}`, o.zl && `ZL: ${o.zl}`, o.uwagi && `Uwagi: ${o.uwagi}`]
+        .filter(Boolean).join(' | '));
     const text = `Niedopasowane operacje różniące się o 1 grosz od tej faktury:\n${lines.join('\n')}`;
     w.setAttribute('aria-label', text);
     w.addEventListener('mouseenter', e => showTip(text, e));

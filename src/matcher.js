@@ -87,6 +87,7 @@ async function readLedger(path) {
             if (isKsefDone(cell(ws, n, 2), cVal)) continue;
             const firma = cell(ws, n, 5) ?? '';
             const uwagi = fmtNote(cell(ws, n, 26));
+            const zl = fmtNote(cell(ws, n, 4));
             const seen = new Set();
             // tylko koszty: brutto (Q), brutto paliwo (T) oraz "Inni robią zakupy" = netto (X) + VAT (Y) - nie ma kolumny brutto
             const cols = [['koszt', 17], ['koszt', 20]];
@@ -99,7 +100,7 @@ async function readLedger(path) {
                 seen.add(key + k);
                 if (!data[key].has(k)) data[key].set(k, []);
                 data[key].get(k).push({
-                    lp, firma, uwagi, sheet: sheetName, row: n, gross: k, // brutto z ewidencji (Q, T albo X+Y), w groszach
+                    lp, firma, uwagi, zl, sheet: sheetName, row: n, gross: k, // brutto z ewidencji (Q, T albo X+Y), w groszach
                     b: cell(ws, n, 2), c: cell(ws, n, 3), f: cell(ws, n, 6),
                     g: cell(ws, n, 7), h: cell(ws, n, 8), gHas: hasCell(ws, n, 7), hHas: hasCell(ws, n, 8),
                 });
@@ -363,7 +364,7 @@ function match(invoices, ledger, amountsFor, dueFor, paidFor) {
         for (const delta of [-1, 1]) {
             for (const e of ledger[month].koszt.get(cents + delta) || []) {
                 const key = e.sheet + ':' + e.row;
-                if (!usedOps.has(key)) near.set(key, { lp: e.lp, firma: String(e.firma ?? '').trim() });
+                if (!usedOps.has(key)) near.set(key, { lp: e.lp, firma: String(e.firma ?? '').trim(), zl: e.zl, uwagi: e.uwagi });
             }
         }
         if (near.size) rec.nearOps = [...near.values()].sort((a, b) => String(a.lp).localeCompare(String(b.lp), 'pl', { numeric: true }));
