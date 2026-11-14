@@ -281,7 +281,24 @@ function openNearModal(rec) {
     hideTip();
     nearRec = rec;
     nearSel = null;
-    $('nm-sub').textContent = `Faktura ${rec.ksef} – kwota brutto ${rec.amount}. Wybierz dokładnie jedną operację.`;
+    // numer KSEF jest hiperłączem otwierającym PDF faktury (bez linku, gdy pliku PDF nie ma)
+    let ksefEl;
+    if (rec.pdf) {
+        ksefEl = document.createElement('a');
+        ksefEl.href = '#';
+        ksefEl.className = 'pdf-link';
+        ksefEl.title = 'Otwórz fakturę PDF';
+        ksefEl.onclick = async e => {
+            e.preventDefault();
+            const res = await api.openPdf(rec.ksef);
+            if (!res.ok) showMsg('Błąd: ' + res.error);
+        };
+    } else {
+        ksefEl = document.createElement('span');
+        ksefEl.title = 'Brak pliku PDF w wybranym folderze';
+    }
+    ksefEl.textContent = rec.ksef;
+    $('nm-sub').replaceChildren('Faktura ', ksefEl, ` – kwota brutto ${rec.amount}. Wybierz dokładnie jedną operację.`);
     const body = $('nm-body');
     body.replaceChildren();
     for (const o of availableNear(rec)) {

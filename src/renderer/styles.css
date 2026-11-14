@@ -398,6 +398,12 @@ tr.pick-row {
     cursor: pointer;
 }
 
+a.pdf-link {
+    color: var(--accent);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
 .dialog .warning {
     color: var(--muted);
 }
