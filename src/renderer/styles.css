@@ -233,6 +233,10 @@ button.reject-btn:hover {
     color: var(--warn);
 }
 
+.stat.err b {
+    color: var(--err);
+}
+
 .card {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -283,6 +287,10 @@ button.reject-btn:hover {
 
 .dot.warn {
     background: var(--warn);
+}
+
+.dot.err {
+    background: var(--err);
 }
 
 .scroll {
