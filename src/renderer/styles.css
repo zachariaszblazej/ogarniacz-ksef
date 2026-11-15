@@ -237,6 +237,10 @@ button.reject-btn:hover {
     color: var(--err);
 }
 
+.stat.muted b {
+    color: var(--muted);
+}
+
 .card {
     background: var(--surface);
     border: 1px solid var(--line);
@@ -291,6 +295,10 @@ button.reject-btn:hover {
 
 .dot.err {
     background: var(--err);
+}
+
+.dot.muted {
+    background: var(--muted);
 }
 
 .scroll {
