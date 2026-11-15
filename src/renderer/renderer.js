@@ -455,7 +455,7 @@ function addMatchedFrom(src, op, res) {
 // Odrzucone dopasowanie zapisane jako nowa operacja: faktura trafia do niedopasowanych z włączonym dopisaniem
 function rejectedToUnmatched(m) {
     m.state = 'gone';
-    const slot = m.addSlot;
+    const slot = m.addSlot ?? m.latentAddId; // dopasowane automatycznie mają tylko latentAddId
     if (slot !== undefined) addOn[slot] = true;
     unmatchedRecs.push({
         date: m.date, ksef: m.ksef, contractor: m.shortName, due: m.due, paid: m.paid, amount: m.amount,
