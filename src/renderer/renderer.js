@@ -251,6 +251,7 @@ const usedOpKeys = () => new Set(matchedRecs.filter(r => r.state === 'matched' &
 // operacje (ta sama kwota lub ±1 grosz), które nie są już zajęte przez inną dopasowaną fakturę
 function availableNear(rec) {
     const used = usedOpKeys();
+    if (rec.state === 'matched') used.delete(rec.opKey); // własna operacja faktury nadal jest do wyboru
     return (rec.nearOps || []).filter(o => !used.has(o.key));
 }
 
@@ -277,6 +278,16 @@ function manualMarker(planId) {
     w.textContent = '!!!';
     bindTip(w, 'Dopasowana ręcznie. Kliknij, aby przenieść z powrotem do niedopasowanych');
     w.onclick = () => { hideTip(); unmatchManual(planId); };
+    return w;
+}
+
+// Znacznik faktury przywróconej z odrzuconych do dopasowanych; kliknięcie otwiera listę operacji jak w odrzuconych
+function restoredMarker(rec) {
+    const w = document.createElement('span');
+    w.className = 'near-warn';
+    w.textContent = '!!!';
+    bindTip(w, 'Ta faktura była w odrzuconych dopasowanych. Kliknij, aby dowiedzieć się więcej');
+    w.onclick = () => openNearModal(rec);
     return w;
 }
 
@@ -394,28 +405,42 @@ document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !$('near-modal').classList.contains('hidden') && $('confirm').classList.contains('hidden')) closeNearModal();
 });
 
+// Przywrócona faktura (dopasowana, ale wcześniej odrzucona) przy zmianie wyboru wraca do stanu odrzuconej,
+// dzięki czemu dalej działa ta sama obsługa co dla faktur z tabeli odrzuconych
+function detachRestored(rec) {
+    if (rec.state !== 'matched') return;
+    matchOn[matchedRecs.indexOf(rec)] = false;
+    rec.state = 'rejected';
+}
+
 $('nm-ok').onclick = async () => {
     if (!nearRec) return;
     const rec = nearRec;
+    const fromMatched = rec.state === 'matched';
     if (!nearSel) {
         // zmieniono tylko pole „Dodaj jako nową operację” (zaznaczone albo odznaczone)
         if (!nearAddCb || nearAddCb.checked === nearAddInitial) return;
         const want = nearAddCb.checked;
         closeNearModal();
-        if (rec.state === 'rejected') { // odrzucone dopasowanie: dopisanie jako nowa przenosi fakturę do niedopasowanych
-            if (want) rejectedToUnmatched(rec);
+        if (rec.state === 'rejected' || fromMatched) { // dopisanie jako nowa przenosi fakturę do niedopasowanych
+            if (want) {
+                detachRestored(rec);
+                rejectedToUnmatched(rec);
+            }
             return;
         }
         setAddNew(rec, want);
         return;
     }
     const op = nearSel;
+    if (fromMatched && op.key === rec.opKey) return closeNearModal(); // ta sama operacja: bez zmian
     const ok = await askConfirm(`Czy chcesz dopasować fakturę do operacji Lp ${op.lp}, Firma ${op.firma || '—'}?`, 'Tak', 'Nie');
     if (!ok) return; // Nie: zamyka tylko okno potwierdzenia
     const res = await api.manualMatch(rec.nearId, op.key);
     closeNearModal();
     if (!res.ok) return showMsg('Błąd: ' + res.error);
     if (res.planId !== fullPlan.length) return showMsg('Błąd: niespójny stan programu – uruchom „Dopasuj” ponownie.');
+    detachRestored(rec);
     addMatchedFrom(rec, op, res);
 };
 
@@ -429,14 +454,14 @@ function carry(s) {
 }
 
 // Końcówka ręcznego dopasowania. src: niedopasowana faktura (z śladem ręcznego dopasowania)
-// albo odrzucone dopasowanie (wraca do dopasowanych „jak gdyby nigdy nic”, bez śladu odrzucenia)
+// albo odrzucone dopasowanie (wraca do dopasowanych z informacyjnym znacznikiem, że było odrzucone)
 function addMatchedFrom(src, op, res) {
     fullPlan.push(res.item);
     matchOn.push(true);
     const base = { ...res.record, ...carry(src), opKey: op.key, state: 'matched' };
     if (src.state === 'rejected') {
         src.state = 'gone';
-        matchedRecs.push({ ...base, manual: false });
+        matchedRecs.push({ ...base, manual: false, restored: true });
     } else {
         // faktura trafia na koniec listy dopasowanych, a z niedopasowanych znika
         matchedRecs.push({ ...base, manual: true, fromRec: src });
@@ -608,6 +633,7 @@ function renderMatched() {
             if (k === 'pdf') {
                 td.appendChild(pdfButton(r));
                 if (r.manual) td.append(manualMarker(i));
+                else if (r.restored) td.append(restoredMarker(r));
                 continue;
             }
             if (k === 'gTerm' || k === 'hPaid') {
